@@ -1,0 +1,5 @@
+-- NÃO EXECUTAR enquanto o sistema .NET legado estiver em uso.
+-- Na virada: 1) LEGACY_CLEAR_PLAINTEXT=true no .env; 2) renomeie este arquivo para .sql e rode o migrate.
+-- Usuários que nunca logaram no sistema novo ficam sem SENHA_HASH e precisarão usar "Esqueci minha senha".
+
+UPDATE USUARIO SET SENHA = NULL WHERE SENHA_HASH IS NOT NULL;

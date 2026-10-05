@@ -1,0 +1,13 @@
+# segredos
+api/.env
+# dependências / gerados
+api/vendor/
+api/storage/logs/*
+api/storage/ratelimit/*
+api/storage/cache/*
+api/storage/uploads/*
+!api/storage/**/.gitkeep
+web/node_modules/
+public_html/assets/
+public_html/index.html
+dist/

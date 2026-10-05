@@ -1,0 +1,4 @@
+# Apache (XAMPP local): equivalente ao web.config do IIS
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [QSA,L]
