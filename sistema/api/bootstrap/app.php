@@ -21,7 +21,8 @@ if (is_file($root . '/.env')) {
 
 $builder = new ContainerBuilder();
 $builder->addDefinitions(__DIR__ . '/container.php');
-if (($_ENV['APP_ENV'] ?? 'production') === 'production') {
+// Sem permissão de escrita no cache, roda sem compilar (mais lento) em vez de derrubar a API.
+if (($_ENV['APP_ENV'] ?? 'production') === 'production' && is_writable($root . '/storage/cache')) {
     $builder->enableCompilation($root . '/storage/cache');
 }
 $container = $builder->build();

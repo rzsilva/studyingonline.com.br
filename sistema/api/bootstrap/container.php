@@ -26,6 +26,7 @@ use App\Integrations\Mail\Mailer;
 use App\Integrations\Storage\LocalStorage;
 use App\Support\Connection;
 use App\Support\RateLimiter;
+use Monolog\Handler\ErrorLogHandler;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
 use Psr\Container\ContainerInterface as C;
@@ -43,7 +44,11 @@ return [
 
     LoggerInterface::class => static function (C $c) {
         $logger = new Logger('api');
-        $logger->pushHandler(new RotatingFileHandler($c->get('settings')['storage_path'] . '/logs/api.log', 30));
+        $logs = $c->get('settings')['storage_path'] . '/logs';
+        // Sem permissão de escrita em storage/logs, usa o log de erros do PHP/IIS.
+        $logger->pushHandler(is_writable($logs)
+            ? new RotatingFileHandler($logs . '/api.log', 30)
+            : new ErrorLogHandler());
         return $logger;
     },
 
