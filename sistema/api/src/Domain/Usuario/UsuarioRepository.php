@@ -81,7 +81,7 @@ final class UsuarioRepository
     }
 
     /**
-     * Pendência financeira: título VENCIDO e não pago (LISTA_SITUACAO_CR_ID 2 = pago).
+     * Pendência financeira: título VENCIDO, não recebido (2) e não cancelado (4).
      * O legado considerava qualquer título em aberto, inclusive parcelas futuras,
      * o que bloqueava alunos em dia; aqui só contam os vencidos.
      */
@@ -90,7 +90,7 @@ final class UsuarioRepository
         $st = $this->db->prepare(
             'SELECT 1 FROM CONTAS_RECEBER
               WHERE USUARIO_ID = ? AND INSTITUICAO_ID = ?
-                AND COALESCE(LISTA_SITUACAO_CR_ID, 0) <> 2 AND DATA_VENCIMENTO < CURDATE() LIMIT 1'
+                AND COALESCE(LISTA_SITUACAO_CR_ID, 0) NOT IN (2, 4) AND DATA_VENCIMENTO < CURDATE() LIMIT 1'
         );
         $st->execute([$id, $instituicaoId]);
         return (bool) $st->fetchColumn();

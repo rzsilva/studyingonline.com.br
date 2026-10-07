@@ -132,3 +132,36 @@ export async function blobUrl(path: string): Promise<string> {
   if (!res.ok) await parse(res);
   return URL.createObjectURL(await res.blob());
 }
+
+/** Envio de documento da inscrição pública, autenticado pelo token devolvido na inscrição. */
+export async function uploadComToken<T>(path: string, token: string, form: FormData): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    body: form,
+    credentials: 'include',
+    headers: { ...baseHeaders(), Authorization: `Documento ${token}` },
+  });
+  return parse<T>(res);
+}
+
+/**
+ * Abre um arquivo protegido: se a API devolver o arquivo, baixa; se devolver {url}
+ * (arquivo antigo hospedado no FTP do legado), abre a URL em nova aba.
+ */
+export async function abrirArquivo(path: string, fallbackName = 'arquivo'): Promise<void> {
+  const res = await send(path);
+  if (!res.ok) await parse(res);
+  if ((res.headers.get('Content-Type') ?? '').includes('application/json')) {
+    const { url } = (await res.json()).data as { url: string };
+    if (/^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener');
+    return;
+  }
+  const blob = await res.blob();
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? fallbackName;
+  const href = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href, download: name });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+}

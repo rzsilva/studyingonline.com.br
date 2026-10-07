@@ -128,17 +128,20 @@ final class PresencialService
         )->fetchAll();
         $hoje = date('Y-m-d');
         return array_map(static function ($r) use ($hoje) {
+            // LISTA_SITUACAO_CR: 1 a receber, 2 recebido, 3 atrasado, 4 cancelado
             $pago = (int) $r['LISTA_SITUACAO_CR_ID'] === 2;
+            $cancelado = (int) $r['LISTA_SITUACAO_CR_ID'] === 4;
             return [
+                'cancelado' => $cancelado,
                 'id' => (int) $r['ID'],
                 'vencimento' => $r['DATA_VENCIMENTO'],
                 'pagamento' => $r['DATA_PAGAMENTO'],
                 'valor' => (float) $r['VALOR'],
-                'documento' => $r['NUM_DOCUMENTO'],
+                'documento' => str_starts_with((string) $r['NUM_DOCUMENTO'], 'so-cr-') ? null : $r['NUM_DOCUMENTO'], // referência interna do MercadoPago não interessa ao aluno
                 'descricao' => $r['CATEGORIA'] ?? $r['OBSERVACAO'],
                 'situacao' => $r['SITUACAO'] ?? ($pago ? 'PAGO' : 'EM ABERTO'),
                 'pago' => $pago,
-                'vencido' => !$pago && $r['DATA_VENCIMENTO'] !== null && substr($r['DATA_VENCIMENTO'], 0, 10) < $hoje,
+                'vencido' => !$pago && !$cancelado && $r['DATA_VENCIMENTO'] !== null && substr($r['DATA_VENCIMENTO'], 0, 10) < $hoje,
             ];
         }, $rows);
     }

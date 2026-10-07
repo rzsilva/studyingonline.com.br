@@ -79,6 +79,11 @@ final class CrudRepository
         if ($r->ownedBy($user)) {
             $data[$r->ownerColumn] = $user->id;
         }
+        $this->assertUnique($r, $user, $data, null);
+        if ($r->beforeWrite) {
+            $data = ($r->beforeWrite)($data, $user, null);
+        }
+        $data += $r->createDefaults;
         $cols = array_keys($data);
         $sql = "INSERT INTO {$r->table} (" . implode(', ', $cols)
             . ($r->createdAt ? ", {$r->createdAt}" : '')
@@ -94,6 +99,10 @@ final class CrudRepository
         $data = $this->validate($r, $user, $input, false);
         if ($r->ownedBy($user)) {
             unset($data[$r->ownerColumn]);
+        }
+        $this->assertUnique($r, $user, $data, $id);
+        if ($r->beforeWrite) {
+            $data = ($r->beforeWrite)($data, $user, $id);
         }
         if ($data) {
             $set = implode(', ', array_map(static fn ($c) => "{$c} = ?", array_keys($data)));
@@ -115,6 +124,27 @@ final class CrudRepository
                 throw new ApiException("{$r->label} em uso por outros registros; não pode ser excluído(a).", 409, 'conflict');
             }
             throw $e;
+        }
+    }
+
+    /** Valores únicos dentro da instituição (ex.: e-mail de usuário). */
+    private function assertUnique(Resource $r, AuthUser $user, array $data, ?int $id): void
+    {
+        $errors = [];
+        foreach ($r->unique as $col) {
+            if (!isset($data[$col]) || $data[$col] === '') {
+                continue;
+            }
+            $dup = $this->db->run(
+                "SELECT 1 FROM {$r->table} WHERE {$col} = ? AND INSTITUICAO_ID = ?" . ($id ? ' AND ID <> ?' : '') . ' LIMIT 1',
+                $id ? [$data[$col], $user->instituicaoId, $id] : [$data[$col], $user->instituicaoId]
+            )->fetchColumn();
+            if ($dup) {
+                $errors[Naming::toCamel($col)] = 'Já cadastrado na instituição.';
+            }
+        }
+        if ($errors) {
+            throw ApiException::validation($errors);
         }
     }
 
@@ -220,6 +250,18 @@ final class CrudRepository
                     throw new \InvalidArgumentException('Informe uma URL iniciando com http:// ou https://.');
                 }
                 return $v;
+            case 'email':
+                $v = mb_strtolower(trim((string) $v));
+                if (filter_var($v, FILTER_VALIDATE_EMAIL) === false || mb_strlen($v) > (int) $f->max) {
+                    throw new \InvalidArgumentException('E-mail inválido.');
+                }
+                return $v;
+            case 'cpf':
+                $d = preg_replace('/\D/', '', (string) $v);
+                if (!Cpf::valido($d)) {
+                    throw new \InvalidArgumentException('CPF inválido.');
+                }
+                return Cpf::formatar($d); // legado grava com máscara 999.999.999-99
             case 'int':
             case 'ref':
                 if (filter_var($v, FILTER_VALIDATE_INT) === false) {

@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Megaphone,
   MonitorPlay,
+  IdCard,
   School,
   Wallet,
   type LucideIcon,
@@ -48,6 +49,7 @@ export const NAVIGATION: NavItem[] = [
   },
   { label: 'Atendimento', to: '/agendamento', icon: CalendarClock },
   // extrato do aluno: sempre visível (inclusive com pendência, para regularizar)
+  { label: 'Minha matrícula', to: '/minha-matricula', icon: IdCard, visible: (u) => u.perfilId === Perfil.Aluno },
   { label: 'Financeiro', to: '/meu-financeiro', icon: Wallet, visible: (u) => u.perfilId === Perfil.Aluno },
   {
     label: 'Acadêmico',
@@ -74,7 +76,7 @@ export const NAVIGATION: NavItem[] = [
     icon: BookOpen,
     visible: isAdmin,
     children: [
-      { label: 'Conta Bancária', to: '/contas-bancarias' },
+      { label: 'Contas de recebimento', to: '/contas-bancarias' },
       { label: 'Disciplinas', to: '/disciplinas' },
       { label: 'Instituição', to: '/instituicao' },
       { label: 'Professores', to: '/professores' },
@@ -98,8 +100,6 @@ export const NAVIGATION: NavItem[] = [
       { label: 'Contas Fixas', to: '/financeiro/contas-fixas' },
       { label: 'Contas a Receber', to: '/financeiro/contas-receber' },
       { label: 'Contas a Pagar', to: '/financeiro/contas-pagar' },
-      { label: 'Arquivos Remessa', to: '/financeiro/remessa', visible: (u) => u.master },
-      { label: 'Arquivos Retorno', to: '/financeiro/retorno', visible: (u) => u.master },
     ],
   },
   {

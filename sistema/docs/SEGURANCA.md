@@ -13,7 +13,7 @@ Os segredos abaixo estão em texto puro no repositório do sistema legado (`D:\S
 | Chaves reCAPTCHA (`tokenSite`/`tokenServer`) | `Adaline.Webclient/Web.config` |
 | Chave e salt Rijndael do cookie | `Utilities/Geral.cs` (permitem forjar sessão de qualquer usuário no legado) |
 | Senhas de professores | coluna `LISTA_PROFESSOR.SENHA` (texto puro): não é usada pelo sistema novo; limpar na Fase 4 |
-| Tokens de gateway (MercadoPago etc.) | tabela `CONTA_BANCARIA.GATEWAY_TOKEN_PROD`: rotacionar e, na Fase 5, criptografar em repouso |
+| Tokens de gateway (MercadoPago etc.) | tabela `CONTA_BANCARIA.GATEWAY_TOKEN_PROD`: rotacionar. Ficam em texto no banco enquanto o legado (que os lê assim) estiver no ar; criptografar em repouso na virada (Fase 6) |
 
 Depois, remova os segredos do histórico do git do legado (ex.: `git filter-repo`) ou trate o repositório como privado e sensível.
 
@@ -33,7 +33,7 @@ Depois, remova os segredos do histórico do git do legado (ex.: `git filter-repo
 | 10 | Endpoints sem `[Authorize]` e sem checar posse (IDOR) | `AuthMiddleware` no grupo; tenant + `canAccessUser` em todo repositório. Na Fase 2, o CRUD genérico filtra sempre por instituição e valida que FKs pertencem à mesma instituição | 1–2 ✅ / próximos módulos |
 | 11 | Cor da instituição injetada direto no CSS | Validação `#rgb`/`#rrggbb` (`safeColor`) | 1 ✅ |
 | 12 | Nota da prova enviada pelo aluno e **gabarito (`CORRETA`) enviado ao navegador** | Aluno envia só as respostas; nota calculada no servidor (`CorrecaoProva`); gabarito nunca sai da API para o aluno; uma tentativa por prova | 2 ✅ |
-| 13 | Webhooks de pagamento sem validação de assinatura | Assinatura/segredo por gateway + idempotência | 5 |
+| 13 | Webhooks de pagamento sem validação; webhook MercadoPago usava a conta de **qualquer** instituição e baixava título por número em todas as escolas | URL com instituição + token HMAC; o corpo só traz o id, que é consultado na API com a credencial da própria instituição; título casado por ID + instituição; eventos idempotentes em `PAGAMENTO_EVENTO` | 5 ✅ |
 | 14 | Upload sem checagem de tipo, enviado por FTP sem criptografia | Lista de extensões + MIME real (finfo), 20 MB, nome aleatório, em `storage/` (fora do webroot), download só autenticado | 2 ✅ |
 | 16 | Painel abria qualquer curso pelo ID; URL de vídeo bloqueado ia ao navegador | Matrícula verificada; URL só para vídeo liberado; progresso e prova validados contra a trilha no servidor | 2 ✅ |
 | 17 | Mass assignment (EF recebia a entidade inteira do cliente) | Só colunas declaradas em `Resource::fields` são gravadas; `INSTITUICAO_ID` e o dono vêm do token | 2 ✅ |
@@ -42,6 +42,15 @@ Depois, remova os segredos do histórico do git do legado (ex.: `git filter-repo
 | 20 | Fórum sem checagem de autoria; `Edit` aceitava a entidade inteira | Autor ou equipe; só título/texto editáveis | 3 ✅ |
 | 21 | Anotações de vídeo visíveis a todos | Coluna `USUARIO_ID` e filtro por dono para todos os perfis | 3 ✅ |
 | 22 | Lista de colegas expunha dados pessoais | Só nome e foto | 3 ✅ |
+| 23 | **Crítico:** `Inscricao/Edit` funcionava SEM login e gravava o USUARIO inteiro do cliente (trocar senha/perfil de qualquer usuário, virar admin) | Análise só por admin; só o status muda; dados do candidato não são editáveis por essa rota | 4 ✅ |
+| 24 | Inscrição pública reaproveitava contas existentes e confiava na instituição do corpo | E-mail/CPF existente = 409 (entrar e se inscrever logado); instituição pelo host; honeypot + 5 inscrições/h por IP | 4 ✅ |
+| 25 | Admin definia/via senhas dos usuários | Convite com link de uso único (72h); senha nunca passa pelo cadastro | 4 ✅ |
+| 26 | Documentos de inscrição por FTP sem checagem | Só PDF/JPG/PNG com MIME real; upload público só com token HMAC da inscrição (24h); download só admin ou o próprio aluno | 4 ✅ |
+| 27 | `LISTA_PROFESSOR.SENHA` em texto puro | Nunca lida nem devolvida; script `901_*.pending` para apagar | 4 (aplicar 901) |
+| 28 | Credenciais dos gateways legíveis pela API/tela | Gravadas por endpoint próprio e **nunca** devolvidas (a tela só mostra "configurada"); troca auditada | 5 ✅ |
+| 29 | Rotinas financeiras públicas e sem login (`GerarCobrancaAlunos`, `*AtualizarStatusContaReceber`) | Rotina diária só com `X-Rotinas-Token`; ações manuais só para admin; financeiro inteiro restrito ao admin | 5 ✅ |
+| 30 | XML do PagSeguro lido sem proteção | `LIBXML_NONET` (sem entidades externas / XXE) | 5 ✅ |
+| 31 | Planilha exportada podia carregar fórmulas (CSV injection) | Campos de texto iniciados por `= + - @` são neutralizados | 5 ✅ |
 | 15 | MySQL sem SSL | `DB_SSL_CA` no `.env` quando o provedor oferecer | 1 (opcional) |
 
 ## Senhas durante a transição

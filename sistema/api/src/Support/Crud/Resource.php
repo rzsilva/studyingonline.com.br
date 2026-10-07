@@ -34,6 +34,12 @@ final class Resource
     public bool $ownerForAll = false;
     /** colunas que o aluno nunca define (ficam com o default/valor atual) */
     public array $staffOnlyColumns = [];
+    /** colunas únicas dentro da instituição (ex.: EMAIL) */
+    public array $unique = [];
+    /** valores fixos gravados só na criação (colunas NOT NULL do legado sem default) */
+    public array $createDefaults = [];
+    /** @var (callable(array $data, \App\Domain\Auth\AuthUser $user, ?int $id): array)|null ajuste/validação extra antes de gravar */
+    public $beforeWrite = null;
 
     public function __construct(public readonly string $table, public readonly string $label)
     {

@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, CalendarDays, ChevronRight, Clock, FileText, School, Users } from 'lucide-react';
-import { http } from '../../api/client';
+import { ApiError, http } from '../../api/client';
+import { useFeedback } from '../../components/overlay';
 import { useAuth } from '../../auth/AuthProvider';
-import { Alert, Card, FullPageSpinner, cx } from '../../components/ui';
+import { Alert, Button, Card, FullPageSpinner, cx } from '../../components/ui';
 import { fmt } from '../../components/CrudPage';
 import { abrirMaterial } from '../academico/CadastroPages';
 import { BoletimView } from '../academico/TurmaNotasPages';
@@ -130,19 +131,20 @@ export function PresencialCursoPage() {
 
 /* ---------- Extrato financeiro do aluno ---------- */
 
-interface Titulo { id: number; vencimento: string | null; pagamento: string | null; valor: number; documento: string | null; descricao: string | null; situacao: string; pago: boolean; vencido: boolean }
+interface Titulo { id: number; vencimento: string | null; pagamento: string | null; valor: number; documento: string | null; descricao: string | null; situacao: string; pago: boolean; cancelado?: boolean; vencido: boolean }
 
 export function MeuFinanceiroPage() {
   const q = useQuery({ queryKey: ['meu-financeiro'], queryFn: () => http.get<Titulo[]>('/me/financeiro') });
+  const formas = useQuery({ queryKey: ['formas-pagamento'], queryFn: () => http.get<string[]>('/me/formas-pagamento') });
   if (q.isLoading) return <FullPageSpinner />;
   if (q.isError) return <Alert>{(q.error as Error).message}</Alert>;
-  const abertos = (q.data ?? []).filter((t) => !t.pago);
+  const abertos = (q.data ?? []).filter((t) => !t.pago && !t.cancelado);
   const vencidos = abertos.filter((t) => t.vencido);
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Financeiro</h1>
-        <p className="mt-1 text-sm text-slate-500">Mensalidades e cobranças. A emissão de 2ª via estará disponível em breve.</p>
+        <p className="mt-1 text-sm text-slate-500">Mensalidades e cobranças. Use "Pagar" para gerar o boleto/link ou a 2ª via; a baixa é automática após o pagamento.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <Card><p className="text-sm text-slate-500">Em aberto</p><p className="text-2xl font-semibold text-slate-900">{fmt.money(abertos.reduce((s, t) => s + t.valor, 0))}</p></Card>
@@ -155,10 +157,10 @@ export function MeuFinanceiroPage() {
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50"><tr>
-            {['Vencimento', 'Descrição', 'Valor', 'Pagamento', 'Situação'].map((h) => <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>)}
+            {['Vencimento', 'Descrição', 'Valor', 'Pagamento', 'Situação', ''].map((h) => <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>)}
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
-            {q.data?.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum lançamento.</td></tr>}
+            {q.data?.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-500">Nenhum lançamento.</td></tr>}
             {q.data?.map((t) => (
               <tr key={t.id}>
                 <td className="px-4 py-3">{fmt.date(t.vencimento)}</td>
@@ -167,15 +169,46 @@ export function MeuFinanceiroPage() {
                 <td className="px-4 py-3">{fmt.date(t.pagamento)}</td>
                 <td className="px-4 py-3">
                   <span className={cx('rounded-full px-2 py-0.5 text-xs font-medium',
-                    t.pago ? 'bg-emerald-50 text-emerald-700' : t.vencido ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700')}>
-                    {t.pago ? 'Pago' : t.vencido ? 'Vencido' : 'Em aberto'}
+                    t.pago ? 'bg-emerald-50 text-emerald-700' : t.cancelado ? 'bg-slate-100 text-slate-500' : t.vencido ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700')}>
+                    {t.pago ? 'Pago' : t.cancelado ? 'Cancelado' : t.vencido ? 'Vencido' : 'Em aberto'}
                   </span>
                 </td>
+                <td className="px-4 py-2 text-right">{!t.pago && !t.cancelado && <PagarTitulo titulo={t} formas={formas.data ?? []} />}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/** Gera o boleto/link (ou 2ª via) do título e abre em nova aba. */
+function PagarTitulo({ titulo, formas }: { titulo: Titulo; formas: string[] }) {
+  const { toast } = useFeedback();
+  const [carregando, setCarregando] = useState<string | null>(null);
+  if (formas.length === 0) return <span className="text-xs text-slate-400">Pague na secretaria</span>;
+  const pagar = async (forma: string) => {
+    setCarregando(forma);
+    // abre a aba já no clique (bloqueadores de pop-up barram janelas abertas depois de uma espera)
+    const aba = window.open('about:blank', '_blank');
+    try {
+      const r = await http.post<{ url: string }>(`/contas-receber/${titulo.id}/pagar`, { forma });
+      if (aba) aba.location.href = r.url; else window.location.href = r.url;
+    } catch (e) {
+      aba?.close();
+      toast(e instanceof ApiError ? e.message : 'Não foi possível gerar a cobrança.', 'error');
+    } finally {
+      setCarregando(null);
+    }
+  };
+  return (
+    <div className="inline-flex gap-1">
+      {formas.map((f) => (
+        <Button key={f} variant={f === 'boleto' ? 'primary' : 'secondary'} className="px-3 py-1.5 text-xs" loading={carregando === f} onClick={() => pagar(f)}>
+          {f === 'boleto' ? 'Pagar' : 'Cartão'}
+        </Button>
+      ))}
     </div>
   );
 }

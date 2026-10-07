@@ -32,5 +32,13 @@ return [
         'from_name' => $env('MAIL_FROM_NAME', 'Studying Online'),
     ],
     'app_url'      => rtrim((string) $env('APP_URL', ''), '/'),
+    'pagamentos' => [
+        'boletocloud_proxy' => (string) $env('BOLETOCLOUD_PROXY_URL', ''),
+        'boletocloud_token' => (string) $env('BOLETOCLOUD_API_TOKEN', ''),
+        'gateway_proxy'     => (string) $env('GATEWAY_PROXY_URL', ''),
+        'mercadopago_api'   => (string) $env('MERCADOPAGO_API_URL', 'https://api.mercadopago.com'),
+        'api_publica'       => rtrim((string) ($env('PUBLIC_API_URL') ?: rtrim((string) $env('APP_URL', ''), '/') . '/api'), '/'),
+    ],
+    'rotinas_token' => (string) $env('ROTINAS_TOKEN', ''),
     'storage_path' => dirname(__DIR__) . '/storage',
 ];

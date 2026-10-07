@@ -73,6 +73,9 @@ export function LoginPage() {
         <Button type="submit" className="w-full" loading={formState.isSubmitting}>
           Entrar
         </Button>
+        <p className="text-center text-sm text-slate-500">
+          Ainda não é aluno? <Link to="/inscricao" className="font-medium text-primary hover:underline">Inscreva-se</Link>
+        </p>
       </form>
     </AuthLayout>
   );

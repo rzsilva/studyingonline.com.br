@@ -60,7 +60,8 @@ M1=$(req $A POST /chat/4 '{"texto":"Claro!"}' | jget data.id)
 ok "polling incremental (depois=)" "$(req $AL GET "/chat/1?depois=$((M1-1))" | jget data.0.texto)" "'Claro!'"
 
 echo "== anotações (pessoais)"
-MOD=$(req $A GET /listas/modulos?cursoId=$(req $A GET /listas/cursos | jget data.0.id) | jget data.0.id)
+CEAD=$(req $A GET /listas/cursos | $P -r 'foreach(json_decode(stream_get_contents(STDIN),true)["data"] as $c) if($c["nome"]==="Teologia EAD") echo $c["id"];')
+MOD=$(req $A GET "/listas/modulos?cursoId=$CEAD" | jget data.0.id)
 N1=$(req $AL POST /anotacoes "{\"disciplinaId\":$MOD,\"video\":\"Aula 1\",\"posicao\":\"00:05:10\",\"descricao\":\"Rever exemplo\"}" | jget data.id)
 ok "aluno anota" "$([ "$N1" -gt 0 ] 2>/dev/null && echo y)" y
 req $PR POST /anotacoes "{\"disciplinaId\":$MOD,\"descricao\":\"nota do professor\"}" >/dev/null

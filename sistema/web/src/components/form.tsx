@@ -1,10 +1,10 @@
-import { forwardRef, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { forwardRef, useId, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { http } from '../api/client';
 import { cx } from './ui';
 
 export interface Opcao {
-  id: number;
+  id: number | string;
   nome: string;
 }
 
@@ -47,7 +47,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   { label, error, options, placeholder = 'Selecione…', id, className, ...rest },
   ref,
 ) {
-  const fid = id ?? rest.name ?? label;
+  const autoId = useId();
+  const fid = id ?? rest.name ?? autoId;
   return (
     <div className={className}>
       <Label id={fid} label={label} />
@@ -65,7 +66,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
 type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string };
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea({ label, error, id, className, ...rest }, ref) {
-  const fid = id ?? rest.name ?? label;
+  const autoId = useId();
+  const fid = id ?? rest.name ?? autoId;
   return (
     <div className={className}>
       <Label id={fid} label={label} />
@@ -77,7 +79,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 
 export const Checkbox = forwardRef<HTMLInputElement, { label: string; className?: string } & React.InputHTMLAttributes<HTMLInputElement>>(
   function Checkbox({ label, className, id, ...rest }, ref) {
-    const fid = id ?? rest.name ?? label;
+    const autoId = useId();
+    const fid = id ?? rest.name ?? autoId;
     return (
       <label htmlFor={fid} className={cx('flex cursor-pointer items-center gap-2 text-sm text-slate-700', className)}>
         <input ref={ref} id={fid} type="checkbox" className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30" {...rest} />

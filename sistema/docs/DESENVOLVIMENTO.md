@@ -7,6 +7,8 @@ Três arquivos criam só as tabelas e colunas que o sistema novo usa até agora:
 - `api/tests/fixtures/schema_minimo.sql`: usuários, instituições e financeiro mínimo (Fase 1).
 - `api/tests/fixtures/schema_academico.sql`: tabelas acadêmicas (Fase 2).
 - `api/tests/fixtures/schema_comunidade.sql`: avisos, fórum, chat, anotações e extrato (Fase 3).
+- `api/tests/fixtures/schema_financeiro.sql`: contas de recebimento, contas a pagar e fixas, listas financeiras (Fase 5). Rode por último.
+- `api/tests/fixtures/schema_secretaria.sql`: inscrição, estado civil, pré-requisitos e cursos com matrícula aberta (Fase 4).
 
 Usuários de teste:
 
@@ -55,9 +57,10 @@ No `.env`: `DB_PORT=3307`, `DB_NAME=so_dev`, `DB_USER=so_dev`, `DB_PASS=devpass`
 Com a API rodando (`php -S localhost:8099 -t public`) numa base de testes **recém-criada**:
 
 ```bash
-php vendor/bin/phpunit                                   # 23 testes unitários (auth, HTTP, trilha, correção de prova)
+php vendor/bin/phpunit                                   # 30 testes unitários (auth, HTTP, trilha, correção de prova, CPF, e-mail)
 PHP=D:/xampp/php/php.exe bash tests/e2e/fase2.sh        # 57 verificações: acadêmico e trilha
-PHP=D:/xampp/php/php.exe bash tests/e2e/fase3.sh        # 48 verificações: comunidade (rodar depois do fase2)
+PHP=D:/xampp/php/php.exe bash tests/e2e/fase3.sh        # 47 verificações: comunidade (rodar depois do fase2)
+MYSQL="mysql --default-character-set=utf8mb4 -uroot -P3307 -h127.0.0.1 so_dev" PHP=D:/xampp/php/php.exe bash tests/e2e/fase4.sh   # 73 verificações: secretaria
 ```
 
 **`fase2.sh` cobre:**
@@ -89,3 +92,36 @@ As telas também foram verificadas em navegador headless (Chrome + puppeteer-cor
 ### Observação sobre acentos no Windows
 
 O `curl` do Git Bash envia em ANSI os acentos que vão dentro de argumentos `-d`. Por isso os scripts usam escapes JSON (ex.: `\u00e1` para "á"). A API responde 400 `invalid_json` a corpos fora de UTF-8, em vez de ignorá-los.
+
+### E-mails em desenvolvimento
+
+Sem `BREVO_API_KEY` e com `APP_ENV` diferente de `production`, os e-mails são gravados em `api/storage/mail/*.html` em vez de enviados. Abra o arquivo para ver o conteúdo; o link de convite e o de redefinição de senha aparecem ali.
+
+### Pagamentos: simulador de provedores (Fase 5)
+
+Não há credenciais de sandbox ainda. Os gateways são testados contra um simulador que imita os proxies da Adaline (BoletoCloud, Vindi, PagSeguro) e a API do MercadoPago:
+
+```bash
+php -S 127.0.0.1:8098 tests/mock/gateways.php
+```
+
+No `.env` local:
+
+```ini
+BOLETOCLOUD_PROXY_URL=http://127.0.0.1:8098/boletocloud
+BOLETOCLOUD_API_TOKEN=qualquer
+GATEWAY_PROXY_URL=http://127.0.0.1:8098/gw
+MERCADOPAGO_API_URL=http://127.0.0.1:8098/mp
+PUBLIC_API_URL=http://127.0.0.1:8099/api
+```
+
+O MercadoPago simulado só aceita o token `TESTE-MP`. Para controlar o simulador:
+
+- `POST /_mock/pagar {"gateway":"boletocloud|vindi|pagseguro|mercadopago","ref":"..."}` marca um pagamento como feito;
+- `POST /_mock/falhar {"on":true}` derruba todos os provedores, para testar a falha.
+
+E2E da fase (51 verificações; rodar depois das Fases 2–4):
+
+```bash
+MYSQL="mysql --default-character-set=utf8mb4 -uroot -P3307 -h127.0.0.1 so_dev" PHP=D:/xampp/php/php.exe bash tests/e2e/fase5.sh
+```

@@ -43,13 +43,7 @@ final class PasswordResetService
             return;
         }
 
-        $token = bin2hex(random_bytes(32));
-        $this->db->prepare(
-            'INSERT INTO PASSWORD_RESET (USUARIO_ID, TOKEN_HASH, EXPIRA_EM, CRIADO_EM)
-             VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), NOW())'
-        )->execute([(int) $user['ID'], hash('sha256', $token), self::TTL_MINUTES]);
-
-        $link = "{$this->appUrl}/redefinir-senha?token={$token}";
+        $link = $this->emitirLink((int) $user['ID'], self::TTL_MINUTES);
         $this->mailer->send(
             $email,
             'Redefinição de senha',
@@ -57,6 +51,38 @@ final class PasswordResetService
             . '<p><a href="' . htmlspecialchars($link, ENT_QUOTES) . '">Clique aqui para criar uma nova senha</a>.</p>'
             . '<p>O link vale por ' . self::TTL_MINUTES . ' minutos. Se não foi você, ignore este e-mail.</p>'
         );
+    }
+
+    /**
+     * Convite de acesso enviado pela secretaria (usuário novo ou que esqueceu a senha).
+     * O administrador nunca define nem vê senhas. Link válido por 72 horas.
+     */
+    public function convidar(AuthUser $admin, int $usuarioId): string
+    {
+        $u = $this->usuarios->findById($usuarioId, $admin->instituicaoId);
+        if ($u === null) {
+            throw ApiException::notFound('Usuário não encontrado.');
+        }
+        $this->limiter->hit("convite:{$admin->id}", 60, 3600);
+        $link = $this->emitirLink($usuarioId, 72 * 60);
+        $this->mailer->send(
+            (string) $u['EMAIL'],
+            'Seu acesso ao Studying Online',
+            '<p>Olá, <b>' . htmlspecialchars((string) $u['NOME'], ENT_QUOTES) . '</b>!</p>'
+            . '<p>A secretaria liberou seu acesso. <a href="' . htmlspecialchars($link, ENT_QUOTES) . '">Clique aqui para criar sua senha</a>.</p>'
+            . '<p>Seu login é este e-mail. O link vale por 72 horas.</p>'
+        );
+        return (string) $u['EMAIL'];
+    }
+
+    private function emitirLink(int $usuarioId, int $minutos): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $this->db->prepare(
+            'INSERT INTO PASSWORD_RESET (USUARIO_ID, TOKEN_HASH, EXPIRA_EM, CRIADO_EM)
+             VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), NOW())'
+        )->execute([$usuarioId, hash('sha256', $token), $minutos]);
+        return "{$this->appUrl}/redefinir-senha?token={$token}";
     }
 
     public function reset(string $token, string $novaSenha): void

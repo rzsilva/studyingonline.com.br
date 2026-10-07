@@ -45,6 +45,19 @@ final class Field
         return $f;
     }
 
+    public static function email(string $col): self
+    {
+        $f = new self($col, 'email');
+        $f->max = 200;
+        return $f;
+    }
+
+    /** CPF: aceita com ou sem máscara, valida os dígitos e grava no formato do legado (999.999.999-99). */
+    public static function cpf(string $col): self
+    {
+        return new self($col, 'cpf');
+    }
+
     public static function int(string $col): self
     {
         return new self($col, 'int');

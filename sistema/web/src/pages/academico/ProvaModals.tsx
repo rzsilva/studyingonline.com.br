@@ -151,8 +151,8 @@ export function CopiarProvaModal({ prova, onClose }: { prova: Row; onClose: () =
       <div className="space-y-4">
         <Select label="Curso de destino" options={cursos.data ?? []} value={cursoId} onChange={(e) => { setCursoId(e.target.value); setSelecionados([]); }} />
         {(modulos.data ?? []).filter((m) => m.id !== prova.disciplinaId).map((m) => (
-          <Checkbox key={m.id} label={m.nome} checked={selecionados.includes(m.id)}
-            onChange={(e) => setSelecionados((s) => (e.target.checked ? [...s, m.id] : s.filter((x) => x !== m.id)))} />
+          <Checkbox key={m.id} label={m.nome} checked={selecionados.includes(Number(m.id))}
+            onChange={(e) => setSelecionados((s) => (e.target.checked ? [...s, Number(m.id)] : s.filter((x) => x !== Number(m.id))))} />
         ))}
         {cursoId && modulos.data?.length === 0 && <p className="text-sm text-slate-500">Este curso não tem módulos.</p>}
       </div>

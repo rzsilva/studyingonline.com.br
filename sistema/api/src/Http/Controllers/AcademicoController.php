@@ -28,6 +28,8 @@ final class AcademicoController
         'disciplinas-forum' => ['SELECT ID, VALOR AS NOME FROM LISTA_DISCIPLINA WHERE INSTITUICAO_ID = ? ORDER BY VALOR', true, false],
         'cursos'       => ['SELECT ID, NOME FROM CURSO WHERE INSTITUICAO_ID = ? ORDER BY ATIVO DESC, NOME', true, true],
         'alunos'       => ['SELECT ID, NOME FROM USUARIO WHERE INSTITUICAO_ID = ? AND LISTA_PERFIL_ID = 3 ORDER BY NOME', true, true],
+        'perfis'       => ['SELECT ID, VALOR AS NOME FROM LISTA_PERFIL ORDER BY ID', false, true],
+        'estados-civis' => ['SELECT ID, VALOR AS NOME FROM LISTA_ESTADO_CIVIL ORDER BY ID', false, false],
         'turmas'       => ['SELECT ID, VALOR AS NOME FROM LISTA_TURMA ORDER BY ID', false, false],
         'status-nota'  => ['SELECT ID, VALOR AS NOME FROM LISTA_STATUS_NOTA ORDER BY ID', false, false],
         'situacoes-ag' => ['SELECT ID, VALOR AS NOME FROM LISTA_SITUACAO_AG ORDER BY ID', false, false],

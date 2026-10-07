@@ -14,6 +14,10 @@ import { AvisosPage } from './pages/comunidade/AvisosPages';
 import { ForumPage, TopicoPage } from './pages/comunidade/ForumPages';
 import { ChatPage } from './pages/comunidade/ChatPage';
 import { MeuFinanceiroPage, PresencialCursoPage, PresencialCursosPage } from './pages/comunidade/PresencialPages';
+import { InscricaoPublicaPage } from './pages/secretaria/InscricaoPublicaPage';
+import { InscricoesPage, ProfessoresPage, UsuariosPage } from './pages/secretaria/SecretariaPages';
+import { MinhaMatriculaPage } from './pages/secretaria/MinhaMatriculaPage';
+import { ContasBancariasPage, ContasFixasPage, ContasPagarPage, ContasReceberPage, RelatorioFinanceiroPage } from './pages/financeiro/FinanceiroPages';
 import { FullPageSpinner } from './components/ui';
 import { NAVIGATION, type NavItem } from './lib/navigation';
 import { Perfil } from './lib/types';
@@ -59,6 +63,17 @@ const ROTAS: Record<string, ReactElement> = {
   '/chat': <ChatPage />,
   '/painel/presencial': <PresencialCursosPage />,
   '/meu-financeiro': <MeuFinanceiroPage />,
+  // Fase 4
+  '/inscricoes': <Only perfis={ADMIN}><InscricoesPage /></Only>,
+  '/usuarios': <Only perfis={ADMIN}><UsuariosPage /></Only>,
+  '/professores': <Only perfis={ADMIN}><ProfessoresPage /></Only>,
+  '/minha-matricula': <Only perfis={[Perfil.Aluno]}><MinhaMatriculaPage /></Only>,
+  // Fase 5
+  '/financeiro/contas-receber': <Only perfis={ADMIN}><ContasReceberPage /></Only>,
+  '/financeiro/contas-pagar': <Only perfis={ADMIN}><ContasPagarPage /></Only>,
+  '/financeiro/contas-fixas': <Only perfis={ADMIN}><ContasFixasPage /></Only>,
+  '/contas-bancarias': <Only perfis={ADMIN}><ContasBancariasPage /></Only>,
+  '/relatorios/financeiro': <Only perfis={ADMIN}><RelatorioFinanceiroPage /></Only>,
 };
 
 const rotasMenu = (items: NavItem[]): string[] =>
@@ -71,6 +86,7 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
+      <Route path="/inscricao" element={<InscricaoPublicaPage />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<AppShell />}>

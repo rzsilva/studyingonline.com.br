@@ -10,6 +10,10 @@ use App\Http\Controllers\AuthController;
 use App\Domain\Comunidade\Resources as ComunidadeResources;
 use App\Http\Controllers\ComunidadeController as C;
 use App\Http\Controllers\CrudController;
+use App\Http\Controllers\FinanceiroController as Fin;
+use App\Domain\Financeiro\Resources as FinanceiroResources;
+use App\Http\Controllers\SecretariaController as S;
+use App\Domain\Secretaria\Resources as SecretariaResources;
 use App\Http\Controllers\InstituicaoController;
 use App\Http\Controllers\MeController;
 use App\Http\Controllers\PainelController as P;
@@ -32,6 +36,17 @@ return static function (App $app): void {
         $g->post('/esqueci-senha', [AuthController::class, 'forgot']);
         $g->post('/redefinir-senha', [AuthController::class, 'resetPassword']);
     });
+
+    // Públicas — inscrição (instituição sempre pelo host)
+    $app->get('/publico/cursos', [S::class, 'cursosAbertos']);
+    $app->post('/publico/inscricoes', [S::class, 'inscrever']);
+    $app->post('/publico/inscricoes/documentos/{campo:[A-Za-z_]+}', [S::class, 'documentoPublico']);
+
+    // Webhook público do MercadoPago (autenticado por token HMAC na URL + consulta à API do provedor)
+    $app->post('/webhooks/mercadopago/{instituicao:[0-9]+}/{token:[a-f0-9]{40}}', [Fin::class, 'webhookMercadoPago']);
+
+    // Rotina diária (agendador da Locaweb): protegida pelo header X-Rotinas-Token
+    $app->post('/rotinas/diaria', [\App\Http\Controllers\RotinasController::class, 'diaria']);
 
     // Autenticadas. Permissões por perfil: RoleMiddleware na rota ou checagem no controller/service.
     $app->group('', function (Group $g) {
@@ -91,6 +106,40 @@ return static function (App $app): void {
         $g->get('/painel-presencial/cursos', [C::class, 'presencialCursos']);
         $g->get('/painel-presencial/cursos/{id:[0-9]+}', [C::class, 'presencialCurso']);
         $g->get('/me/financeiro', [C::class, 'meuFinanceiro']);
+
+        // Fase 4 — secretaria
+        CrudController::routes($g, '/usuarios', SecretariaResources::usuarios());
+        CrudController::routes($g, '/professores', SecretariaResources::professores());
+        $g->post('/usuarios/{id:[0-9]+}/convite', [S::class, 'convidar']);
+        $g->get('/inscricoes', [S::class, 'listar']);
+        $g->get('/inscricoes/{id:[0-9]+}', [S::class, 'detalhe']);
+        $g->put('/inscricoes/{id:[0-9]+}/status', [S::class, 'decidir']);
+        $g->get('/inscricoes/{id:[0-9]+}/documentos/{campo:[A-Za-z_]+}', [S::class, 'baixarDocumento']);
+        $g->post('/rotinas/inatividade', [S::class, 'rotinaInatividade']);
+        $g->get('/me/inscricao', [S::class, 'minhaInscricao']);
+        $g->post('/me/inscricao/documentos/{campo:[A-Za-z_]+}', [S::class, 'meuDocumento']);
+        $g->get('/me/cursos-abertos', [S::class, 'cursosParaAluno']);
+        $g->post('/me/inscricoes', [S::class, 'inscreverLogado']);
+        $g->get('/me/rematricula', [S::class, 'rematriculas']);
+        $g->post('/me/rematricula', [S::class, 'rematricular']);
+
+        // Fase 5 — financeiro
+        CrudController::routes($g, '/contas-receber', FinanceiroResources::contasReceber());
+        CrudController::routes($g, '/contas-pagar', FinanceiroResources::contasPagar());
+        CrudController::routes($g, '/contas-fixas', FinanceiroResources::contasFixas());
+        CrudController::routes($g, '/contas-bancarias', FinanceiroResources::contasBancarias());
+        $g->put('/contas-bancarias/{id:[0-9]+}/token', [Fin::class, 'token']);
+        $g->get('/contas-bancarias/{id:[0-9]+}/webhook', [Fin::class, 'webhookUrl']);
+        $g->get('/financeiro/gateways', [Fin::class, 'gateways']);
+        $g->post('/contas-receber/{id:[0-9]+}/pagar', [Fin::class, 'pagar']);
+        $g->post('/contas-receber/{id:[0-9]+}/baixa', [Fin::class, 'baixa']);
+        $g->post('/contas-receber/{id:[0-9]+}/cancelar', [Fin::class, 'cancelar']);
+        $g->get('/me/formas-pagamento', [Fin::class, 'formas']);
+        $g->post('/financeiro/sincronizar', [Fin::class, 'sincronizar']);
+        $g->post('/financeiro/mensalidades', [Fin::class, 'mensalidades']);
+        $g->post('/financeiro/contas-fixas/gerar', [Fin::class, 'gerarFixas']);
+        $g->get('/financeiro/resumo', [Fin::class, 'resumo']);
+        $g->get('/financeiro/receber/exportar', [Fin::class, 'exportar']);
 
         // Painel EAD do aluno (trilha sequencial)
         $g->get('/painel/cursos', [P::class, 'cursos']);

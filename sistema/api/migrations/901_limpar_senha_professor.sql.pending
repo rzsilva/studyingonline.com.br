@@ -1,0 +1,4 @@
+-- LISTA_PROFESSOR.SENHA guarda senhas em texto puro e NÃO é usada para login
+-- (professores entram como USUARIO perfil 2). Nem o legado nem o sistema novo autenticam por ela.
+-- Para aplicar: renomeie para .sql e rode php bin/migrate.php (irreversível; faça backup antes).
+UPDATE LISTA_PROFESSOR SET SENHA = NULL WHERE SENHA IS NOT NULL;

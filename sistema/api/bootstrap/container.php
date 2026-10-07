@@ -8,9 +8,17 @@ use App\Domain\Auth\PasswordResetService;
 use App\Domain\Auth\RefreshTokenRepository;
 use App\Domain\Auth\TokenService;
 use App\Domain\Instituicao\InstituicaoResolver;
+use App\Domain\Secretaria\InscricaoService;
+use App\Domain\Financeiro\CobrancaService;
+use App\Integrations\Pagamento\BoletoCloudGateway;
+use App\Integrations\Pagamento\HttpCliente;
+use App\Integrations\Pagamento\MercadoPagoGateway;
+use App\Integrations\Pagamento\PagSeguroGateway;
+use App\Integrations\Pagamento\VindiGateway;
 use App\Domain\Instituicao\InstituicaoRepository;
 use App\Domain\Usuario\UsuarioRepository;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RotinasController;
 use App\Integrations\Mail\BrevoMailer;
 use App\Integrations\Mail\Mailer;
 use App\Integrations\Storage\LocalStorage;
@@ -63,9 +71,27 @@ return [
         $c->get('settings')['mail']['from'],
         $c->get('settings')['mail']['from_name'],
         $c->get(LoggerInterface::class),
+        $c->get('settings')['env'] !== 'production' ? $c->get('settings')['storage_path'] . '/mail' : null,
     ),
 
     PasswordResetService::class => autowire()->constructorParameter('appUrl', static fn (C $c) => $c->get('settings')['app_url']),
+
+    InscricaoService::class => autowire()
+        ->constructorParameter('tokenSecret', static fn (C $c) => $c->get('settings')['auth']['jwt_secret'])
+        ->constructorParameter('appUrl', static fn (C $c) => $c->get('settings')['app_url'])
+        ->constructorParameter('clearLegacyPlaintext', static fn (C $c) => $c->get('settings')['auth']['legacy_clear_plaintext']),
+
+    // Fase 5 — gateways de pagamento (URLs/credenciais globais no .env; credenciais por instituição em CONTA_BANCARIA)
+    BoletoCloudGateway::class => static fn (C $c) => new BoletoCloudGateway(new HttpCliente(),
+        $c->get('settings')['pagamentos']['boletocloud_proxy'], $c->get('settings')['pagamentos']['boletocloud_token']),
+    VindiGateway::class => static fn (C $c) => new VindiGateway(new HttpCliente(), $c->get('settings')['pagamentos']['gateway_proxy']),
+    PagSeguroGateway::class => static fn (C $c) => new PagSeguroGateway(new HttpCliente(), $c->get('settings')['pagamentos']['gateway_proxy']),
+    MercadoPagoGateway::class => static fn (C $c) => new MercadoPagoGateway(new HttpCliente(),
+        $c->get('settings')['pagamentos']['mercadopago_api'], $c->get('settings')['pagamentos']['api_publica'] . '/webhooks/mercadopago'),
+    CobrancaService::class => autowire()
+        ->constructorParameter('webhookSecret', static fn (C $c) => $c->get('settings')['auth']['jwt_secret']),
+
+    RotinasController::class => autowire()->constructorParameter('token', static fn (C $c) => $c->get('settings')['rotinas_token']),
 
     InstituicaoResolver::class => static fn (C $c) => new InstituicaoResolver(
         $c->get(InstituicaoRepository::class),

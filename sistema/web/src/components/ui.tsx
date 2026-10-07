@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -35,7 +35,8 @@ export function Button({ variant = 'primary', loading, disabled, className, chil
 type InputProps = InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string };
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input({ label, error, id, className, ...rest }, ref) {
-  const inputId = id ?? rest.name;
+  const autoId = useId();
+  const inputId = id ?? rest.name ?? autoId; // garante <label for> associado mesmo sem id/name
   return (
     <div className={className}>
       <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium text-slate-700">

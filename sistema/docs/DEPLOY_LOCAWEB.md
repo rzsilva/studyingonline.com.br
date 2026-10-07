@@ -66,6 +66,31 @@ php bin\migrate.php
 
 > Antes, faça backup do banco (painel da Locaweb > MySQL > Backup). As migrations só adicionam colunas e tabelas, mas o backup é obrigatório.
 
+## 4b. Pagamentos e rotina diária (Fase 5)
+
+No `.env` do servidor, acrescente:
+
+```ini
+# proxies da Adaline usados pelo legado (mesmos valores de adaline_api_boletocloud / adaline_api_gatewaypagamento do Web.config antigo)
+BOLETOCLOUD_PROXY_URL=...
+BOLETOCLOUD_API_TOKEN=...      # use o token NOVO (o antigo está exposto no repositório)
+GATEWAY_PROXY_URL=...
+MERCADOPAGO_API_URL=https://api.mercadopago.com
+PUBLIC_API_URL=https://SEU_DOMINIO/api
+ROTINAS_TOKEN=...              # php -r "echo bin2hex(random_bytes(24));"
+```
+
+**Credenciais de cada instituição:** são cadastradas na tela *Cadastros → Contas de recebimento* (ícone de chave). Não ficam no `.env`.
+
+**MercadoPago:** na mesma tela, a URL de notificação aparece ao abrir a credencial. Cadastre essa URL no painel do MercadoPago (Webhooks → evento *Pagamentos*).
+
+**Agendador de tarefas da Locaweb:** crie uma tarefa diária, de madrugada, que chame `POST https://SEU_DOMINIO/api/rotinas/diaria` com o header `X-Rotinas-Token: <ROTINAS_TOKEN>`. Se o agendador não permitir header, rode `php bin/rotinas.php` da sua máquina apontando para o banco de produção. A rotina faz duas coisas:
+
+- dá baixa nos pagamentos de boleto e cartão de todas as instituições;
+- inativa os alunos cujo curso terminou.
+
+**Antes de ligar:** teste cada provedor com credenciais de sandbox ou homologação. A integração foi validada apenas contra o simulador (`api/tests/mock/gateways.php`).
+
 ## 5. Conferir
 
 - `https://SEU_DOMINIO/api/health` deve responder `{"data":{"status":"ok"}}`.
