@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Financeiro;
 
+use App\Domain\Adaline\AdalineService;
 use App\Domain\Auth\AuthUser;
 use App\Integrations\Pagamento\BoletoCloudGateway;
 use App\Integrations\Pagamento\ContaGateway;
@@ -46,6 +47,7 @@ final class CobrancaService
         VindiGateway $vindi,
         PagSeguroGateway $pagSeguro,
         private readonly MercadoPagoGateway $mercadoPago,
+        private readonly AdalineService $adaline,
     ) {
         foreach ([$boletoCloud, $vindi, $pagSeguro, $mercadoPago] as $g) {
             $this->gateways[$g->nome()] = $g;
@@ -97,6 +99,10 @@ final class CobrancaService
                     NUM_DOCUMENTO = COALESCE(?, NUM_DOCUMENTO), DATA_EDICAO = NOW() WHERE ID = ? AND INSTITUICAO_ID = ?',
             [$e->tokenBoleto, $e->tokenCartao, $e->numDocumento, $tituloId, $user->instituicaoId]
         );
+        if ($e->tokenBoleto && $gateway instanceof BoletoCloudGateway) {
+            // tarifa do boleto entra no extrato da Adaline (cobrada na fatura da instituição)
+            $this->adaline->registrarBoletoEmitido($user->instituicaoId, $tituloId, $e->tokenBoleto, $t->vencimento);
+        }
         $this->audit->log($user, 'emitir_cobranca', 'CONTAS_RECEBER', $tituloId, null, ['gateway' => $gateway->nome()]);
         return ['url' => $e->url, 'gateway' => $gateway->nome(), 'segundaVia' => false];
     }

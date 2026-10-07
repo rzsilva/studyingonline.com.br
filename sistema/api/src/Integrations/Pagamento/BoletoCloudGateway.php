@@ -21,6 +21,7 @@ final class BoletoCloudGateway implements Gateway
     {
         $p = $t->pagador;
         $instrucao = match ($t->categoriaId) {
+            0 => 'Fatura Studying Online - suporte: financeiro@adaline.com.br',
             2 => 'Boleto referente a Matrícula',
             3 => 'Boleto referente a Rematrícula',
             default => 'Boleto referente a Mensalidade',
