@@ -12,7 +12,8 @@ import { CrudPage, fmt, type CrudConfig, type Row } from '../../components/CrudP
 interface InscricaoItem { id: number; status: number; data: string | null; formaPagamento: string; nome: string; email: string; cpf: string | null; matricula: string | null; documentos: number; cursos: string | null }
 interface InscricaoDetalhe {
   id: number; status: number; justificativaReprovacao: string | null; data: string | null; formaPagamento: number;
-  aluno: { id: number; nome: string; email: string; cpf: string | null; celular: string | null; telefone: string | null; dataNascimento: string | null; matricula: string | null; endereco: string; inativo: boolean };
+  aluno: { id: number; nome: string; email: string; cpf: string | null; celular: string | null; telefone: string | null; dataNascimento: string | null; matricula: string | null; endereco: string; inativo: boolean;
+    filiacao?: string | null; rg?: string | null; rgOrgaoEmissor?: string | null; passaporte?: string | null; telefone2?: string | null };
   cursos: { id: number; nome: string }[];
   questionario: Record<string, string | boolean>;
   documentos: { campo: string; rotulo: string; enviado: boolean }[];
@@ -143,7 +144,8 @@ function InscricaoModal({ id, onClose }: { id: number; onClose: () => void }) {
             <Card title="Dados">
               <dl className="space-y-1.5 text-sm">
                 {([['E-mail', i.aluno.email], ['CPF', i.aluno.cpf], ['Celular', i.aluno.celular], ['Nascimento', fmt.date(i.aluno.dataNascimento)],
-                  ['Endereço', i.aluno.endereco || '—'], ['Pagamento', i.formaPagamento === 2 ? 'Cartão' : 'Boleto']] as const).map(([k, v]) => (
+                  ['Endereço', i.aluno.endereco || '—'], ['RG', [i.aluno.rg, i.aluno.rgOrgaoEmissor].filter(Boolean).join(' · ') || null],
+                  ['Filiação', i.aluno.filiacao], ['Passaporte', i.aluno.passaporte], ['Telefone 2', i.aluno.telefone2], ['Pagamento', i.formaPagamento === 2 ? 'Cartão' : 'Boleto']] as const).map(([k, v]) => (
                   <div key={k} className="flex gap-3"><dt className="w-28 shrink-0 text-slate-500">{k}</dt><dd className="text-slate-800">{v ?? '—'}</dd></div>
                 ))}
               </dl>

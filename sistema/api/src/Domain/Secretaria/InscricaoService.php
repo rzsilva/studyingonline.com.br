@@ -78,7 +78,33 @@ final class InscricaoService
         'saudeObservacao' => ['SAUDE_OBSERVACAO', 'str'],
         'emergenciaNome' => ['EMERGENCIA_NOME', 'str'], 'emergenciaParentesco' => ['EMERGENCIA_PARENTESCO', 'str'],
         'emergenciaTelefone' => ['EMERGENCIA_TELEFONE', 'str'], 'emergenciaCelular' => ['EMERGENCIA_CELULAR', 'str'],
+        // endereço da igreja, histórico e saúde (formulários completo/kids/teen do legado)
+        'igrejaCep' => ['IGREJA_CEP', 'str'], 'igrejaRua' => ['IGREJA_RUA', 'str'], 'igrejaNumero' => ['IGREJA_NUMERO', 'str'],
+        'igrejaBairro' => ['IGREJA_BAIRRO', 'str'], 'igrejaCidade' => ['IGREJA_CIDADE', 'str'], 'igrejaUf' => ['IGREJA_UF', 'str'],
+        'igrejaNumeroMembro' => ['IGREJA_NUMERO_MEMBRO', 'str'], 'igrejaRazaoMudanca' => ['IGREJA_RAZAO_MUDANCA', 'str'],
+        'igrejaDesviouExplique' => ['IGREJA_DESVIOU_EXPLIQUE', 'str'], 'justificativaTranstorno' => ['JUSTIFICATIVA_TRANSTORNO', 'str'],
+        'saudeGeral' => ['SAUDE_GERAL', 'str'],
+        // igreja que a criança/adolescente frequenta (Kids/Teen)
+        'igrejaKid' => ['IGREJA_KID', 'str'], 'igrejaCepKid' => ['IGREJA_CEP_KID', 'str'], 'igrejaRuaKid' => ['IGREJA_RUA_KID', 'str'],
+        'igrejaNumeroKid' => ['IGREJA_NUMERO_KID', 'str'], 'igrejaBairroKid' => ['IGREJA_BAIRRO_KID', 'str'],
+        'igrejaCidadeKid' => ['IGREJA_CIDADE_KID', 'str'], 'igrejaUfKid' => ['IGREJA_UF_KID', 'str'],
+        // dados pessoais complementares (gravados em USUARIO)
+        'filiacao' => ['FILIACAO', 'usuario'], 'telefone2' => ['TELEFONE2', 'usuario'],
+        'rgOrgaoEmissor' => ['RG_ORGAO_EMISSOR', 'usuario'], 'rgDataEmissao' => ['RG_DATA_EMISSAO', 'usuarioData'],
+        'passaporteNumero' => ['PASSAPORTE_NUMERO', 'usuario'], 'passaporteValidade' => ['PASSAPORTE_VALIDADE', 'usuarioData'],
     ];
+
+    /** Perfil do formulário de inscrição conforme LISTA_TIPO_CURSO.FORMULARIO (nome da view no legado). */
+    public static function perfilFormulario(?string $formulario): string
+    {
+        return match (true) {
+            $formulario === null || trim($formulario) === '' => 'basico',
+            stripos($formulario, 'Kids') !== false => 'kids',
+            stripos($formulario, 'Teen') !== false => 'teen',
+            stripos($formulario, 'EAD') !== false => 'ead',
+            default => 'completo',
+        };
+    }
 
     public function __construct(
         private readonly Connection $db,
@@ -102,7 +128,7 @@ final class InscricaoService
     {
         $rows = $this->db->run(
             'SELECT c.ID, c.NOME, c.SUBTITULO, c.DESCRICAO, c.FOTO, c.VALOR, c.VALOR_MATRICULA, c.DATA_MATRICULA,
-                    c.CARGA_HORARIA, c.TEMPO_CURSO, c.LIMITE_ALUNOS_TURMA, tc.VALOR AS TIPO,
+                    c.CARGA_HORARIA, c.TEMPO_CURSO, c.LIMITE_ALUNOS_TURMA, c.TIPO_TURMA, c.PERIODICIDADE_COBRANCA, tc.VALOR AS TIPO, tc.FORMULARIO,
                     (SELECT COUNT(*) FROM USUARIO_CURSO uc WHERE uc.CURSO_ID = c.ID) AS INSCRITOS,
                     (SELECT COUNT(*) FROM CURSO_DEPENDENCIA cd WHERE cd.CURSO_ID = c.ID) AS REQUISITOS
                FROM CURSO c LEFT JOIN LISTA_TIPO_CURSO tc ON tc.ID = c.LISTA_TIPO_CURSO_ID
@@ -118,6 +144,10 @@ final class InscricaoService
             'descricao' => $c['DESCRICAO'],
             'foto' => $c['FOTO'],
             'tipo' => $c['TIPO'],
+            'formulario' => self::perfilFormulario($c['FORMULARIO']),
+            // TIPO_TURMA 1 = online (vídeo-aulas), demais = presencial, como no site do legado
+            'modalidade' => (int) $c['TIPO_TURMA'] === 1 ? 'online' : 'presencial',
+            'periodicidadeMeses' => max(1, (int) $c['PERIODICIDADE_COBRANCA']),
             'mensalidade' => (float) $c['VALOR'],
             // decimal vem como string "0.00" (verdadeira em PHP): comparar como número
             'valorMatricula' => (float) $c['VALOR_MATRICULA'] > 0 ? (float) $c['VALOR_MATRICULA'] : (float) $c['VALOR'],
@@ -331,6 +361,7 @@ final class InscricaoService
             throw ApiException::notFound();
         }
         $u = $this->usuarios->findById((int) $i['USUARIO_ID'], $user->instituicaoId) ?? [];
+        $u += $this->db->run('SELECT FILIACAO, RG, RG_ORGAO_EMISSOR, PASSAPORTE_NUMERO, TELEFONE2 FROM USUARIO WHERE ID = ?', [(int) $i['USUARIO_ID']])->fetch() ?: [];
         $cursos = $this->db->run('SELECT c.ID, c.NOME FROM USUARIO_CURSO x JOIN CURSO c ON c.ID = x.CURSO_ID WHERE x.INSCRICAO_ID = ?', [$id])->fetchAll();
 
         $questionario = [];
@@ -339,7 +370,7 @@ final class InscricaoService
             if ($tipo === 'bool' && !(int) ($i[$col] ?? 0)) {
                 continue;
             }
-            if ($tipo !== 'usuario' && array_key_exists($col, $i) && $i[$col] !== null && $i[$col] !== '') {
+            if (!str_starts_with($tipo, 'usuario') && array_key_exists($col, $i) && $i[$col] !== null && $i[$col] !== '') {
                 $questionario[$k] = $tipo === 'bool' ? (bool) $i[$col] : $i[$col];
             }
         }
@@ -356,6 +387,8 @@ final class InscricaoService
                 'endereco' => trim(implode(', ', array_filter([$u['RUA'] ?? null, $u['NUMERO'] ?? null, $u['BAIRRO'] ?? null,
                     $u['CIDADE'] ?? null, $u['UF'] ?? null, $u['CEP'] ?? null]))),
                 'inativo' => (bool) ($u['INATIVO'] ?? false),
+                'filiacao' => $u['FILIACAO'] ?? null, 'rg' => $u['RG'] ?? null, 'rgOrgaoEmissor' => $u['RG_ORGAO_EMISSOR'] ?? null,
+                'passaporte' => $u['PASSAPORTE_NUMERO'] ?? null, 'telefone2' => $u['TELEFONE2'] ?? null,
             ],
             'cursos' => array_map(static fn ($c) => ['id' => (int) $c['ID'], 'nome' => $c['NOME']], $cursos),
             'questionario' => $questionario,
@@ -618,6 +651,12 @@ final class InscricaoService
                     $d = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $v);
                     if ($d) {
                         $ins[$col] = $d->format('Y-m-d');
+                    }
+                    break;
+                case 'usuarioData':
+                    $d = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $v);
+                    if ($d) {
+                        $usu[$col] = $d->format('Y-m-d');
                     }
                     break;
                 case 'usuario':

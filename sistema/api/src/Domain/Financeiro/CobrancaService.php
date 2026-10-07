@@ -403,14 +403,31 @@ final class CobrancaService
     }
 
     /** Linhas para exportação CSV (abre no Excel). */
-    public function exportarReceber(int $instituicaoId, string $de, string $ate): array
+    /** Filtros da planilha (mesmos do relatório do legado). */
+    public const TIPOS_EXPORTACAO = ['todos', 'recebidos', 'abertos', 'vencidos', 'cancelados'];
+
+    public function exportarReceber(int $instituicaoId, string $de, string $ate, string $tipo = 'todos'): array
     {
+        $filtro = match ($tipo) {
+            'recebidos' => ' AND cr.LISTA_SITUACAO_CR_ID = 2',
+            'abertos' => ' AND cr.LISTA_SITUACAO_CR_ID IN (1, 3) AND cr.DATA_VENCIMENTO >= CURDATE()',
+            'vencidos' => ' AND cr.LISTA_SITUACAO_CR_ID IN (1, 3) AND cr.DATA_VENCIMENTO < CURDATE()',
+            'cancelados' => ' AND cr.LISTA_SITUACAO_CR_ID = 4',
+            default => '',
+        };
         return $this->db->run(
-            "SELECT cr.ID, u.NOME, u.MATRICULA, c.VALOR AS CATEGORIA, cr.DATA_VENCIMENTO, cr.DATA_PAGAMENTO, cr.VALOR, s.VALOR AS SITUACAO
+            "SELECT cr.ID, u.NOME, u.MATRICULA, u.EMAIL, u.CELULAR, u.CPF, u.INATIVO, un.VALOR AS CAMPUS, t.VALOR AS TURMA,
+                    (SELECT GROUP_CONCAT(cu.NOME ORDER BY cu.NOME SEPARATOR ', ') FROM USUARIO_CURSO uc JOIN CURSO cu ON cu.ID = uc.CURSO_ID
+                      WHERE uc.USUARIO_ID = u.ID) AS CURSOS,
+                    c.VALOR AS CATEGORIA, cr.DATA_VENCIMENTO, cr.DATA_PAGAMENTO, cr.VALOR, s.VALOR AS SITUACAO, cr.OBSERVACAO,
+                    (cr.TOKEN_BOLETOCLOUD IS NOT NULL AND cr.TOKEN_BOLETOCLOUD <> '') AS BOLETO,
+                    (cr.TOKEN_CC IS NOT NULL AND cr.TOKEN_CC <> '') AS CARTAO
                FROM CONTAS_RECEBER cr LEFT JOIN USUARIO u ON u.ID = cr.USUARIO_ID
+               LEFT JOIN LISTA_UNIDADE un ON un.ID = u.LISTA_UNIDADE_ID
+               LEFT JOIN LISTA_TURMA t ON t.ID = u.LISTA_TURMA_ID
                LEFT JOIN LISTA_CATEGORIA_CR c ON c.ID = cr.LISTA_CATEGORIA_CR_ID
                LEFT JOIN LISTA_SITUACAO_CR s ON s.ID = cr.LISTA_SITUACAO_CR_ID
-              WHERE cr.INSTITUICAO_ID = ? AND cr.DATA_VENCIMENTO BETWEEN ? AND ?
+              WHERE cr.INSTITUICAO_ID = ? AND cr.DATA_VENCIMENTO BETWEEN ? AND ?{$filtro}
               ORDER BY cr.DATA_VENCIMENTO, u.NOME",
             [$instituicaoId, $de, $ate]
         )->fetchAll();

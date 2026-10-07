@@ -108,15 +108,31 @@ final class FinanceiroController
     {
         $u = self::admin($request);
         $q = $request->getQueryParams();
-        $rows = $this->cobranca->exportarReceber($u->instituicaoId, (string) ($q['de'] ?? date('Y-01-01')), (string) ($q['ate'] ?? date('Y-12-31')));
+        $data = static function (string $k, string $padrao) use ($q): string {
+            $v = (string) ($q[$k] ?? $padrao);
+            $d = \DateTimeImmutable::createFromFormat('!Y-m-d', $v);
+            if (!$d || $d->format('Y-m-d') !== $v) {
+                throw ApiException::validation([$k => 'Data inválida.']);
+            }
+            return $v;
+        };
+        $tipo = (string) ($q['tipo'] ?? 'todos');
+        if (!in_array($tipo, CobrancaService::TIPOS_EXPORTACAO, true)) {
+            throw ApiException::validation(['tipo' => 'Use: ' . implode(', ', CobrancaService::TIPOS_EXPORTACAO) . '.']);
+        }
+        $rows = $this->cobranca->exportarReceber($u->instituicaoId, $data('de', date('Y-01-01')), $data('ate', date('Y-12-31')), $tipo);
         $fh = fopen('php://temp', 'w+');
         fwrite($fh, "\xEF\xBB\xBF");
-        fputcsv($fh, ['ID', 'Aluno', 'Matrícula', 'Categoria', 'Vencimento', 'Pagamento', 'Valor', 'Situação'], ';');
+        fputcsv($fh, ['ID', 'Aluno', 'Matrícula', 'E-mail', 'Celular', 'CPF', 'Ativo', 'Campus', 'Curso', 'Turma', 'Categoria',
+            'Vencimento', 'Pagamento', 'Valor', 'Situação', 'Forma', 'Observação'], ';');
+        // neutraliza fórmulas (CSV injection) em campos de texto
+        $txt = static fn ($v) => preg_match('/^[=+\-@]/', (string) $v) ? "'" . $v : $v;
         foreach ($rows as $r) {
-            // neutraliza fórmulas (CSV injection) em campos de texto
-            $txt = static fn ($v) => preg_match('/^[=+\-@]/', (string) $v) ? "'" . $v : $v;
-            fputcsv($fh, [$r['ID'], $txt($r['NOME']), $txt($r['MATRICULA']), $r['CATEGORIA'], substr((string) $r['DATA_VENCIMENTO'], 0, 10),
-                substr((string) $r['DATA_PAGAMENTO'], 0, 10), number_format((float) $r['VALOR'], 2, ',', ''), $r['SITUACAO']], ';');
+            $forma = $r['BOLETO'] ? 'Boleto' : ($r['CARTAO'] ? 'Cartão' : '');
+            fputcsv($fh, [$r['ID'], $txt($r['NOME']), $txt($r['MATRICULA']), $txt($r['EMAIL']), $txt($r['CELULAR']), $r['CPF'],
+                $r['INATIVO'] === null ? '' : ($r['INATIVO'] ? 'Não' : 'Sim'), $txt($r['CAMPUS']), $txt($r['CURSOS']), $txt($r['TURMA']),
+                $r['CATEGORIA'], substr((string) $r['DATA_VENCIMENTO'], 0, 10), substr((string) $r['DATA_PAGAMENTO'], 0, 10),
+                number_format((float) $r['VALOR'], 2, ',', ''), $r['SITUACAO'], $forma, $txt($r['OBSERVACAO'])], ';');
         }
         rewind($fh);
         $response->getBody()->write((string) stream_get_contents($fh));

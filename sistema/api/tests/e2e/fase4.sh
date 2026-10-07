@@ -131,5 +131,22 @@ if [ -n "$MYSQL" ]; then
   ok "Ana (outro curso ativo) continua ativa" "$(sql "select INATIVO from USUARIO where EMAIL='ana@x.com'")" 0
 fi
 
+echo "== questionário por tipo de curso"
+CA2=$(curl -s "$U/publico/cursos" -H "$HOST")
+ok "curso EAD usa perfil ead" "$(echo "$CA2" | $P -r 'foreach(json_decode(stream_get_contents(STDIN),true)["data"] as $c) if($c["id"]==200) echo $c["formulario"];')" ead
+ok "curso Kids usa perfil kids" "$(echo "$CA2" | $P -r 'foreach(json_decode(stream_get_contents(STDIN),true)["data"] as $c) if($c["id"]==210) echo $c["formulario"];')" kids
+QK=',"questionario":{"igrejaKid":"Igreja Infantil","igrejaUfKid":"RJ","saudeGeral":"Boa","transtornoDoenca":true,"justificativaTranstorno":"TDAH","filiacao":"Maria e Jose","rgOrgaoEmissor":"DETRAN","rgDataEmissao":"2015-03-01","colunaInventada":"x","MASTER":1}'
+RK=$(pub "$(pessoa 210 'Lia Kids' lia@x.com 98765432100 "$QK")")
+IK=$(echo "$RK" | jget data.inscricaoId)
+ok "inscrição Kids criada" "$([ -n "$IK" ] && [ "$IK" != "NULL" ] && echo y)" y
+DK=$(req $A GET /inscricoes/$IK)
+ok "igreja da criança gravada" "$(echo "$DK" | jget data.questionario.igrejaKid)" "'Igreja Infantil'"
+ok "transtorno com justificativa" "$(echo "$DK" | jget data.questionario.justificativaTranstorno)" "'TDAH'"
+ok "filiação vai para o usuário" "$(echo "$DK" | jget data.aluno.filiacao)" "'Maria e Jose'"
+if [ -n "$MYSQL" ]; then
+  ok "data do RG gravada" "$(sql "select substr(RG_DATA_EMISSAO,1,10) from USUARIO where EMAIL='lia@x.com'")" 2015-03-01
+  ok "chave fora da lista ignorada (MASTER continua 0)" "$(sql "select MASTER from USUARIO where EMAIL='lia@x.com'")" 0
+fi
+
 rm -rf $TMP
 echo; [ $FALHAS -eq 0 ] && echo "TODOS OS TESTES PASSARAM" || { echo "$FALHAS FALHA(S)"; exit 1; }

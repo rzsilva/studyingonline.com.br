@@ -88,7 +88,10 @@ Migration `004_financeiro.sql`: tabela `PAGAMENTO_EVENTO` (idempotência e audit
 
 Regras: o total da fatura é a soma de plano, excedente e tarifas de boleto ainda não cobradas. Cada boleto emitido pela escola no BoletoCloud gera uma tarifa (`ADALINE_TARIFA_BOLETO`) quando `COBRAR_BOLETOS=1`. Cancelar a fatura devolve as tarifas para a próxima. Quando a fatura é paga, o contrato (`INSTITUICAO.DATA_VENCIMENTO`) ganha mais um mês. A baixa também acontece na rotina diária.
 
-**Ainda pendente (menor):** perfis de questionário por tipo de curso na inscrição pública (EAD/Kids/Teen) e colunas extras na planilha de contas a receber.
+**Complementos da Fase 6:**
+- Inscrição pública: o questionário muda conforme `LISTA_TIPO_CURSO.FORMULARIO`: básico, EAD, completo, Kids ou Teen. Kids e Teen mostram a seção da igreja da criança e as perguntas de saúde voltadas ao responsável. Dados complementares (filiação, RG e passaporte) são gravados em `USUARIO`.
+- O catálogo de cursos substitui o site do legado: tem busca, filtro Presencial/Online e mostra a periodicidade da parcela.
+- Planilha de contas a receber com as colunas do relatório antigo (e-mail, celular, CPF, ativo, campus, curso, turma, forma de pagamento, observação) e filtro por tipo: todos, recebidos, abertos, vencidos e cancelados.
 
 ## Mudanças de comportamento intencionais
 

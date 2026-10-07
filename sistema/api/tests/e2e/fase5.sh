@@ -107,6 +107,12 @@ ok "professor não vê resumo" "$(code $PR GET /financeiro/resumo)" 403
 CSV=$(curl -s "$U/financeiro/receber/exportar?de=2026-01-01&ate=2026-12-31" -H "Authorization: Bearer $A")
 ok "CSV com cabeçalho" "$(echo "$CSV" | head -1 | grep -c 'Vencimento;Pagamento;Valor')" 1
 ok "CSV só da instituição" "$(echo "$CSV" | grep -c 'Escola B')" 0
+CSV2=$(curl -s "$U/financeiro/receber/exportar?de=2026-01-01&ate=2026-12-31&tipo=recebidos" -H "Authorization: Bearer $A")
+ok "planilha com colunas do relatório legado" "$(echo "$CSV2" | head -1 | grep -c 'E-mail;Celular;CPF;Ativo;Campus;Curso;Turma')" 1
+ok "filtro recebidos só traz pagos" "$(echo "$CSV2" | tail -n +2 | grep ';' | grep -vc ';RECEBIDO;')" 0
+ok "forma de pagamento identificada" "$(echo "$CSV2" | grep -q ';Boleto;' && echo y)" y
+ok "tipo inválido" "$(code $A GET '/financeiro/receber/exportar?tipo=xpto')" 422
+ok "data inválida" "$(code $A GET '/financeiro/receber/exportar?de=2026-02-30')" 422
 [ -n "$MYSQL" ] && ok "eventos de pagamento registrados" "$(sql "select count(*) from PAGAMENTO_EVENTO where STATUS='pago'")" 4
 
 echo; [ $FALHAS -eq 0 ] && echo "TODOS OS TESTES PASSARAM" || { echo "$FALHAS FALHA(S)"; exit 1; }

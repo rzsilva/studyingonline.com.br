@@ -8,12 +8,19 @@ import { Alert, Button, Card, Input, cx } from '../../components/ui';
 import { Checkbox, Select } from '../../components/form';
 import { fmt } from '../../components/CrudPage';
 import { DocumentosUpload } from './DocumentosUpload';
+import { CampoQ, EMERGENCIA_EXTRA, QuestionarioInscricao, type PerfilFormulario } from './QuestionarioInscricao';
+import { useTheme } from '../../theme/ThemeProvider';
 
 export interface CursoAberto {
   id: number; nome: string; subtitulo: string | null; descricao: string | null; tipo: string | null;
   mensalidade: number; valorMatricula: number; inscricoesAte: string | null; cargaHoraria: number | null;
   duracaoMeses: number | null; vagasRestantes: number | null; exigePreRequisito: boolean;
+  formulario: PerfilFormulario; modalidade: 'online' | 'presencial'; periodicidadeMeses: number;
 }
+
+const PERIODO: Record<number, string> = { 1: 'mês', 2: 'bimestre', 3: 'trimestre', 6: 'semestre', 12: 'ano' };
+const porPeriodo = (m: number) => PERIODO[m] ?? `${m} meses`;
+const semAcento = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 interface Resultado { inscricaoId: number; matricula: string; tokenDocumentos: string; documentos: Record<string, string> }
 
 const UFS = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ').map((u, i) => ({ id: i + 1, nome: u }));
@@ -34,6 +41,11 @@ const mascaraCel = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/^(\
 /** Inscrição pública (antes Views/Inscricao). A instituição é a do endereço acessado. */
 export function InscricaoPublicaPage() {
   const cursos = useQuery({ queryKey: ['cursos-abertos'], queryFn: () => http.get<CursoAberto[]>('/publico/cursos') });
+  const tema = useTheme();
+  const [busca, setBusca] = useState('');
+  const [modalidade, setModalidade] = useState<'' | 'online' | 'presencial'>('');
+  const lista = (cursos.data ?? []).filter((c) => (!modalidade || c.modalidade === modalidade)
+    && (!busca || semAcento(`${c.nome} ${c.subtitulo ?? ''} ${c.descricao ?? ''}`).includes(semAcento(busca))));
   const [curso, setCurso] = useState<CursoAberto | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
 
@@ -58,12 +70,29 @@ export function InscricaoPublicaPage() {
       <div className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-5xl">
           <Link to="/login" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-primary"><ArrowLeft className="h-4 w-4" /> Já tenho cadastro</Link>
+          <div className="mt-4 flex items-center gap-3">
+            {tema.logo && <img src={tema.logo} alt="" className="h-12 w-auto" />}
+            <p className="text-lg font-semibold text-primary">{tema.titulo || tema.nome}</p>
+          </div>
           <h1 className="mt-3 text-3xl font-semibold text-slate-900">Inscrições abertas</h1>
           <p className="mt-1 text-slate-500">Escolha o curso para começar sua inscrição.</p>
+          {(cursos.data?.length ?? 0) > 0 && (
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <input type="search" aria-label="Pesquisar cursos" placeholder="Pesquisar cursos" value={busca} onChange={(e) => setBusca(e.target.value)}
+                className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <div className="flex gap-1 rounded-lg bg-white p-1 shadow-sm ring-1 ring-slate-200" role="group" aria-label="Modalidade">
+                {([['', 'Todos'], ['presencial', 'Presencial'], ['online', 'Online']] as const).map(([v, l]) => (
+                  <button key={v} type="button" aria-pressed={modalidade === v} onClick={() => setModalidade(v)}
+                    className={cx('rounded-md px-3 py-1.5 text-sm font-medium', modalidade === v ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100')}>{l}</button>
+                ))}
+              </div>
+            </div>
+          )}
           {cursos.isError && <div className="mt-6"><Alert>{(cursos.error as Error).message}</Alert></div>}
           {cursos.data?.length === 0 && <Card className="mt-6"><p className="text-sm text-slate-500">Não há cursos com inscrições abertas no momento.</p></Card>}
+          {(cursos.data?.length ?? 0) > 0 && lista.length === 0 && <Card className="mt-6"><p className="text-sm text-slate-500">Nenhum curso encontrado com esses filtros.</p></Card>}
           <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {cursos.data?.map((c) => {
+            {lista.map((c) => {
               const esgotado = c.vagasRestantes === 0;
               return (
                 <Card key={c.id} className="flex flex-col">
@@ -72,12 +101,13 @@ export function InscricaoPublicaPage() {
                     <div>
                       <h2 className="font-semibold text-slate-900">{c.nome}</h2>
                       {c.subtitulo && <p className="text-sm text-slate-500">{c.subtitulo}</p>}
+                      <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{c.modalidade === 'online' ? '100% online com vídeo-aulas' : 'Presencial'}</span>
                     </div>
                   </div>
                   {c.descricao && <p className="mt-3 line-clamp-3 text-sm text-slate-600">{c.descricao}</p>}
                   <dl className="mt-4 space-y-1 text-sm text-slate-600">
                     <div className="flex justify-between"><dt>Matrícula</dt><dd className="font-medium">{fmt.money(c.valorMatricula)}</dd></div>
-                    <div className="flex justify-between"><dt>Mensalidade</dt><dd>{fmt.money(c.mensalidade)}</dd></div>
+                    <div className="flex justify-between"><dt>Parcela</dt><dd>{fmt.money(c.mensalidade)} / {porPeriodo(c.periodicidadeMeses)}</dd></div>
                     {c.duracaoMeses && <div className="flex justify-between"><dt>Duração</dt><dd>{c.duracaoMeses} meses</dd></div>}
                   </dl>
                   <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
@@ -106,6 +136,9 @@ export function InscricaoPublicaPage() {
 function FormularioInscricao({ curso, onVoltar, onSucesso }: { curso: CursoAberto; onVoltar: () => void; onSucesso: (r: Resultado) => void }) {
   const [f, setF] = useState<Record<string, string>>({ formaPagamento: '1' });
   const [aceite, setAceite] = useState(false);
+  const [q, setQ] = useState<Record<string, string | boolean>>({});
+  const setQuest = (k: string, v: string | boolean) => setQ((s) => ({ ...s, [k]: v }));
+  const perfil = curso.formulario ?? 'basico';
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const set = (k: string, mask?: (v: string) => string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -114,7 +147,7 @@ function FormularioInscricao({ curso, onVoltar, onSucesso }: { curso: CursoAbert
   const enviar = useMutation({
     mutationFn: () => http.post<Resultado>('/publico/inscricoes', {
       ...f, cursoId: curso.id, deAcordo: aceite, formaPagamento: Number(f.formaPagamento),
-      uf: f.uf ? UFS[Number(f.uf) - 1]?.nome : undefined, questionario: { emergenciaNome: f.emergenciaNome, emergenciaCelular: f.emergenciaCelular },
+      uf: f.uf ? UFS[Number(f.uf) - 1]?.nome : undefined, questionario: { ...q, emergenciaNome: f.emergenciaNome, emergenciaCelular: f.emergenciaCelular },
     }),
     onSuccess: onSucesso,
     onError: (e) => {
@@ -155,7 +188,7 @@ function FormularioInscricao({ curso, onVoltar, onSucesso }: { curso: CursoAbert
         {/* honeypot: invisível para pessoas; robôs costumam preencher */}
         <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" value={f.website ?? ''} onChange={set('website')} />
 
-        <Card title="Dados pessoais">
+        <Card title={perfil === 'kids' || perfil === 'teen' ? 'Dados do aluno' : 'Dados pessoais'}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input className="sm:col-span-2" label="Nome completo *" autoComplete="name" value={f.nome ?? ''} onChange={set('nome')} error={erros.nome} />
             <Input label="CPF *" inputMode="numeric" value={f.cpf ?? ''} onChange={set('cpf', mascaraCpf)} error={erros.cpf} />
@@ -174,10 +207,12 @@ function FormularioInscricao({ curso, onVoltar, onSucesso }: { curso: CursoAbert
             <Select className="sm:col-span-2" label="UF" options={UFS} value={f.uf ?? ''} onChange={set('uf')} />
           </div>
         </Card>
+        <QuestionarioInscricao perfil={perfil} valores={q} onChange={setQuest} />
         <Card title="Contato de emergência">
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Nome" value={f.emergenciaNome ?? ''} onChange={set('emergenciaNome')} />
             <Input label="Celular" inputMode="tel" value={f.emergenciaCelular ?? ''} onChange={set('emergenciaCelular', mascaraCel)} />
+            {perfil !== 'basico' && EMERGENCIA_EXTRA.map((c) => <CampoQ key={c.k} c={c} v={q[c.k]} onChange={setQuest} />)}
           </div>
         </Card>
         <Card title="Acesso ao sistema">

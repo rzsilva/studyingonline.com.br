@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ban, CalendarPlus, CheckCircle2, Download, ExternalLink, KeyRound, Link2, RefreshCw } from 'lucide-react';
 import { ApiError, abrirArquivo, http } from '../../api/client';
 import { Alert, Button, Card, Input, cx } from '../../components/ui';
-import { Textarea } from '../../components/form';
+import { Select, Textarea } from '../../components/form';
 import { Modal, useFeedback } from '../../components/overlay';
 import { CrudPage, fmt, type CrudConfig, type Row } from '../../components/CrudPage';
 
@@ -48,6 +48,7 @@ export function ContasReceberPage() {
   const [baixa, setBaixa] = useState<Row | null>(null);
   const [cancelar, setCancelar] = useState<Row | null>(null);
   const [mensalidades, setMensalidades] = useState(false);
+  const [planilha, setPlanilha] = useState(false);
   const recarregar = () => qc.invalidateQueries({ queryKey: ['/contas-receber'] });
 
   const sincronizar = useMutation({
@@ -90,13 +91,14 @@ export function ContasReceberPage() {
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="secondary" onClick={() => setMensalidades(true)}><CalendarPlus className="h-4 w-4" /> Gerar mensalidades</Button>
           <Button variant="secondary" loading={sincronizar.isPending} onClick={() => sincronizar.mutate()}><RefreshCw className="h-4 w-4" /> Atualizar pagamentos</Button>
-          <Button variant="secondary" onClick={() => abrirArquivo(`/financeiro/receber/exportar?de=${new Date().getFullYear()}-01-01&ate=${new Date().getFullYear()}-12-31`, 'contas-a-receber.csv')}>
-            <Download className="h-4 w-4" /> Planilha do ano
+          <Button variant="secondary" onClick={() => setPlanilha(true)}>
+            <Download className="h-4 w-4" /> Planilha
           </Button>
         </div>
       </CrudPage>
       {baixa && <BaixaModal titulo={baixa} onClose={() => { setBaixa(null); recarregar(); }} />}
       {cancelar && <CancelarModal titulo={cancelar} onClose={() => { setCancelar(null); recarregar(); }} />}
+      {planilha && <PlanilhaModal onClose={() => setPlanilha(false)} />}
       {mensalidades && <MensalidadesModal onClose={() => { setMensalidades(false); recarregar(); }} />}
     </>
   );
@@ -379,5 +381,41 @@ export function RelatorioFinanceiroPage() {
         </>
       )}
     </div>
+  );
+}
+
+const TIPOS_PLANILHA = [
+  { id: 'todos', nome: 'Todos' }, { id: 'recebidos', nome: 'Recebidos' }, { id: 'abertos', nome: 'Em aberto (a vencer)' },
+  { id: 'vencidos', nome: 'Vencidos' }, { id: 'cancelados', nome: 'Cancelados' },
+];
+
+function PlanilhaModal({ onClose }: { onClose: () => void }) {
+  const { toast } = useFeedback();
+  const ano = new Date().getFullYear();
+  const [de, setDe] = useState(`${ano}-01-01`);
+  const [ate, setAte] = useState(`${ano}-12-31`);
+  const [tipo, setTipo] = useState('todos');
+  const [baixando, setBaixando] = useState(false);
+  const baixar = async () => {
+    setBaixando(true);
+    try {
+      await abrirArquivo(`/financeiro/receber/exportar?de=${de}&ate=${ate}&tipo=${tipo}`, `contas-a-receber-${tipo}.csv`);
+      onClose();
+    } catch (e) {
+      toast(erroMsg(e), 'error');
+    } finally {
+      setBaixando(false);
+    }
+  };
+  return (
+    <Modal open title="Planilha de contas a receber" onClose={onClose}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={baixando} onClick={baixar}><Download className="h-4 w-4" /> Baixar</Button></>}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input label="Vencimento de" type="date" value={de} onChange={(e) => setDe(e.target.value)} />
+        <Input label="até" type="date" value={ate} onChange={(e) => setAte(e.target.value)} />
+        <Select className="sm:col-span-2" label="Títulos" options={TIPOS_PLANILHA} placeholder="Todos" value={tipo} onChange={(e) => setTipo(e.target.value || 'todos')} />
+      </div>
+      <p className="mt-3 text-xs text-slate-500">Inclui e-mail, celular, CPF, situação do aluno, campus, curso, turma, forma de pagamento e observação. Abre no Excel.</p>
+    </Modal>
   );
 }
