@@ -32,8 +32,13 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 
 // A API pode ficar em subpasta (ex.: /api no IIS da Locaweb). API_BASE_PATH força o valor (dev com php -S).
+// Sem ele, usa o trecho da URL pedida até "/api": em subdomínio da Locaweb o SCRIPT_NAME é
+// /sistema/api/index.php, mas o navegador pede /api/...
+$caminhoPedido = (string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 $basePath = $_ENV['API_BASE_PATH']
-    ?? rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+    ?? (preg_match('#^(.*?/api)(?:/|$)#', $caminhoPedido, $m) === 1
+        ? $m[1]
+        : rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/'));
 if ($basePath !== '' && $basePath !== '.') {
     $app->setBasePath($basePath);
 }
@@ -43,6 +48,14 @@ if ($basePath !== '' && $basePath !== '.') {
 $app->add(new JsonBodyMiddleware());
 $app->addBodyParsingMiddleware(); // form-urlencoded / multipart
 $app->addRoutingMiddleware();
+// Ignora a barra final (a Locaweb redireciona /api/health para /api/health/). Adicionado depois = roda antes do roteamento.
+$app->add(function ($request, $handler) { // não-static: o Slim faz bind do container
+    $caminho = $request->getUri()->getPath();
+    if ($caminho !== '/' && str_ends_with($caminho, '/')) {
+        $request = $request->withUri($request->getUri()->withPath(rtrim($caminho, '/')));
+    }
+    return $handler->handle($request);
+});
 $errors = $app->addErrorMiddleware($settings['debug'], true, true, $container->get(LoggerInterface::class));
 $errors->setDefaultErrorHandler(new ErrorHandler(
     $container->get(ResponseFactoryInterface::class),
