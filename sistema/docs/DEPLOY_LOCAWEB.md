@@ -26,6 +26,10 @@ Se a hospedagem não permitir pastas fora da raiz pública, use:
 
 ## 2. Enviar por FTP (use FTPS/SFTP)
 
+**Atalho:** `publicar-sistema.bat` (na raiz do repositório) compila com `-AppInsidePublic` e envia ao FTP só o que mudou desde a última publicação, para a pasta `FTP_REMOTE_ROOT_SISTEMA` de `deploy/.env` (ex.: `/web/sistema`). Ele nunca sobrescreve o `_app/.env` do servidor nem os dados de `_app/storage`.
+
+Envio manual:
+
 | Local | Servidor |
 |---|---|
 | `dist\public_html\*` | pasta pública do site (na Locaweb: `web\` ou `wwwroot\`) |

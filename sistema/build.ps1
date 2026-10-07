@@ -11,6 +11,17 @@ $root = $PSScriptRoot
 $php = if (Get-Command php -ErrorAction SilentlyContinue) { 'php' } else { 'D:\xampp\php\php.exe' }
 $composer = Join-Path $root 'tools\composer.phar'
 
+# npm ci apaga node_modules: aborta se algum vite/esbuild deste projeto estiver rodando (trava esbuild.exe).
+$webDir = "$root\web"
+$travando = Get-CimInstance Win32_Process -Filter "Name='node.exe' OR Name='esbuild.exe'" |
+  Where-Object { $_.CommandLine -like "*$webDir*" -or $_.CommandLine -like '*vite*' }
+if ($travando) {
+  Write-Host 'Feche antes o "npm run dev" / "vite preview" (processos que travam node_modules):' -ForegroundColor Yellow
+  $travando | ForEach-Object { Write-Host "  PID $($_.ProcessId): $($_.CommandLine)" }
+  Write-Host 'Ou encerre com: Stop-Process -Id <PID>'
+  exit 1
+}
+
 try {
   Write-Host '> Web: npm ci + build'
   Push-Location "$root\web"
@@ -44,5 +55,7 @@ try {
 finally {
   # restaura dependências de desenvolvimento localmente, mesmo se algo falhar
   Set-Location $root
-  Push-Location "$root\api"; & $php $composer install --no-interaction 2>&1 | Out-Null; Pop-Location
+  # Composer escreve progresso no stderr; com 'Stop' o PowerShell 5 trataria isso como erro.
+  $ErrorActionPreference = 'Continue'
+  Push-Location "$root\api"; & $php $composer install --no-interaction --quiet; Pop-Location
 }

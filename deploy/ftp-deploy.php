@@ -89,7 +89,7 @@ function caminhoIgnorado(string $caminhoRelativo): bool
         return true;
     }
 
-    if (in_array($caminhoRelativo, ['publicar.bat', 'README.md', '.gitignore'], true)) {
+    if (in_array($caminhoRelativo, ['publicar.bat', 'publicar-sistema.bat', 'README.md', '.gitignore'], true)) {
         return true;
     }
 
