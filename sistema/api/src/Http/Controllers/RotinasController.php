@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Domain\Adaline\AdalineService;
 use App\Domain\Financeiro\CobrancaService;
 use App\Domain\Secretaria\InscricaoService;
 use App\Support\ApiException;
@@ -25,6 +26,7 @@ final class RotinasController
         private readonly Connection $db,
         private readonly CobrancaService $cobranca,
         private readonly InscricaoService $inscricoes,
+        private readonly AdalineService $adaline,
         private readonly LoggerInterface $logger,
         private readonly string $token,
     ) {
@@ -52,6 +54,12 @@ final class RotinasController
                 $res['erros']++;
                 $this->logger->error("Rotina diária falhou na instituição {$id}: " . $e->getMessage());
             }
+        }
+        try {
+            $res['faturasAdalinePagas'] = $this->adaline->sincronizar();
+        } catch (\Throwable $e) {
+            $res['erros']++;
+            $this->logger->error('Rotina diária: faturas Adaline: ' . $e->getMessage());
         }
         $this->logger->info('Rotina diária executada', $res);
         return $res;

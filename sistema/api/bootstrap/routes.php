@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domain\Academico\Resources;
 use App\Domain\Auth\Perfil;
 use App\Http\Controllers\AcademicoController as A;
+use App\Http\Controllers\AdalineController as Ad;
 use App\Http\Controllers\ArquivoController;
 use App\Http\Controllers\AuthController;
 use App\Domain\Comunidade\Resources as ComunidadeResources;
@@ -140,6 +141,19 @@ return static function (App $app): void {
         $g->post('/financeiro/contas-fixas/gerar', [Fin::class, 'gerarFixas']);
         $g->get('/financeiro/resumo', [Fin::class, 'resumo']);
         $g->get('/financeiro/receber/exportar', [Fin::class, 'exportar']);
+
+        // Fase 6 — dados da escola e cobrança da Adaline às instituições
+        $g->get('/instituicao', [Ad::class, 'minhaInstituicao']);
+        $g->put('/instituicao', [Ad::class, 'salvarInstituicao']);
+        $g->get('/adaline/faturas', [Ad::class, 'faturas']);
+        $g->post('/adaline/faturas', [Ad::class, 'criarFatura']);
+        $g->post('/adaline/faturas/{id:[0-9]+}/boleto', [Ad::class, 'emitir']);
+        $g->post('/adaline/faturas/{id:[0-9]+}/cancelar', [Ad::class, 'cancelar']);
+        $g->get('/adaline/extrato', [Ad::class, 'extrato']);
+        $g->get('/adaline/instituicoes', [Ad::class, 'instituicoes']);
+        $g->put('/adaline/instituicoes/{id:[0-9]+}', [Ad::class, 'contrato']);
+        $g->get('/adaline/instituicoes/{id:[0-9]+}/sugestao', [Ad::class, 'sugestao']);
+        $g->post('/adaline/sincronizar', [Ad::class, 'sincronizar']);
 
         // Painel EAD do aluno (trilha sequencial)
         $g->get('/painel/cursos', [P::class, 'cursos']);

@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-$env = static fn (string $key, mixed $default = null): mixed => $_ENV[$key] ?? $default;
+// .env (Dotenv) ou variável de ambiente do processo (Dotenv imutável não sobrescreve a do processo)
+$env = static fn (string $key, mixed $default = null): mixed => $_ENV[$key] ?? (getenv($key) !== false ? getenv($key) : $default);
 $bool = static fn (string $key, bool $default = false): bool =>
     filter_var($env($key, $default ? 'true' : 'false'), FILTER_VALIDATE_BOOLEAN);
 
@@ -38,6 +39,16 @@ return [
         'gateway_proxy'     => (string) $env('GATEWAY_PROXY_URL', ''),
         'mercadopago_api'   => (string) $env('MERCADOPAGO_API_URL', 'https://api.mercadopago.com'),
         'api_publica'       => rtrim((string) ($env('PUBLIC_API_URL') ?: rtrim((string) $env('APP_URL', ''), '/') . '/api'), '/'),
+    ],
+    'adaline' => [
+        'operadores'    => array_filter(array_map('trim', explode(',', strtolower((string) $env('ADALINE_OPERADORES', ''))))),
+        'conta_token'   => (string) $env('ADALINE_BOLETOCLOUD_CONTA_TOKEN', ''),
+        'tarifa_boleto' => (float) $env('ADALINE_TARIFA_BOLETO', 0),
+    ],
+    // Cifragem de credenciais no banco (ligar SECRETS_ENCRYPT só depois da virada: o legado lê o token em texto)
+    'segredos' => [
+        'chave'  => (string) $env('SECRETS_KEY', ''),
+        'cifrar' => $bool('SECRETS_ENCRYPT'),
     ],
     'rotinas_token' => (string) $env('ROTINAS_TOKEN', ''),
     'storage_path' => dirname(__DIR__) . '/storage',

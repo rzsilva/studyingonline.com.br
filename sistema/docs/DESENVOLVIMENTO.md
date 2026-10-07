@@ -125,3 +125,22 @@ E2E da fase (51 verificações; rodar depois das Fases 2–4):
 ```bash
 MYSQL="mysql --default-character-set=utf8mb4 -uroot -P3307 -h127.0.0.1 so_dev" PHP=D:/xampp/php/php.exe bash tests/e2e/fase5.sh
 ```
+
+### Fase 6 (cobrança Adaline)
+
+Carregue `api/tests/fixtures/schema_adaline.sql` **depois** da fase 5. Ela cria as tabelas `Adaline*`, as colunas de contrato em `INSTITUICAO` e marca `admin@a.com` como MASTER. No `.env`:
+
+```ini
+ADALINE_OPERADORES=admin@a.com
+ADALINE_BOLETOCLOUD_CONTA_TOKEN=TOKEN-BC-ADALINE
+ADALINE_TARIFA_BOLETO=2.50
+```
+
+E2E (44 verificações; com o simulador ligado):
+
+```bash
+mysql --default-character-set=utf8mb4 -uroot -P3307 -h127.0.0.1 so_dev < tests/fixtures/schema_adaline.sql
+MYSQL="mysql --default-character-set=utf8mb4 -uroot -P3307 -h127.0.0.1 so_dev" PHP=D:/xampp/php/php.exe bash tests/e2e/fase6.sh
+```
+
+Script da virada, testado numa cópia da base: `DB_NAME=so_copia SECRETS_KEY=... SECRETS_ENCRYPT=true LEGACY_CLEAR_PLAINTEXT=true APP_ENV=production php bin/virada.php [--executar]`. As variáveis de ambiente do processo têm prioridade sobre o `.env`.

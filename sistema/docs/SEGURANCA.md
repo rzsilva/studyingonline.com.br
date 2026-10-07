@@ -13,7 +13,8 @@ Os segredos abaixo estão em texto puro no repositório do sistema legado (`D:\S
 | Chaves reCAPTCHA (`tokenSite`/`tokenServer`) | `Adaline.Webclient/Web.config` |
 | Chave e salt Rijndael do cookie | `Utilities/Geral.cs` (permitem forjar sessão de qualquer usuário no legado) |
 | Senhas de professores | coluna `LISTA_PROFESSOR.SENHA` (texto puro): não é usada pelo sistema novo; limpar na Fase 4 |
-| Tokens de gateway (MercadoPago etc.) | tabela `CONTA_BANCARIA.GATEWAY_TOKEN_PROD`: rotacionar. Ficam em texto no banco enquanto o legado (que os lê assim) estiver no ar; criptografar em repouso na virada (Fase 6) |
+| Tokens de gateway (MercadoPago etc.) | tabela `CONTA_BANCARIA.GATEWAY_TOKEN_PROD`: rotacionar. Ficam em texto no banco enquanto o legado (que os lê assim) estiver no ar; cifrados em repouso (AES-256-GCM) pelo `bin/virada.php` |
+| Chaves da API e da conta BoletoCloud **da Adaline** e token `BoletoCloudStudyingOnline` | `Adaline.Webclient/Controllers/AdalineBoletoCloudController.cs` (no código!). A nova conta vai em `ADALINE_BOLETOCLOUD_CONTA_TOKEN` |
 
 Depois, remova os segredos do histórico do git do legado (ex.: `git filter-repo`) ou trate o repositório como privado e sensível.
 
@@ -51,6 +52,9 @@ Depois, remova os segredos do histórico do git do legado (ex.: `git filter-repo
 | 29 | Rotinas financeiras públicas e sem login (`GerarCobrancaAlunos`, `*AtualizarStatusContaReceber`) | Rotina diária só com `X-Rotinas-Token`; ações manuais só para admin; financeiro inteiro restrito ao admin | 5 ✅ |
 | 30 | XML do PagSeguro lido sem proteção | `LIBXML_NONET` (sem entidades externas / XXE) | 5 ✅ |
 | 31 | Planilha exportada podia carregar fórmulas (CSV injection) | Campos de texto iniciados por `= + - @` são neutralizados | 5 ✅ |
+| 32 | Cobrança Adaline com chaves BoletoCloud no código; painel de faturas acessível a qualquer MASTER | Chaves no `.env`; painel só para MASTER cujo e-mail está em `ADALINE_OPERADORES`; escola vê só as próprias faturas; ações auditadas | 6 ✅ |
+| 33 | Contador de documento do boleto dobrava a cada emissão | Incremento atômico de 1 | 6 ✅ |
+| 34 | Credenciais de gateway em texto no banco | AES-256-GCM com `SECRETS_KEY` (aplicado na virada; leitura aceita texto durante a convivência) | 6 (virada) |
 | 15 | MySQL sem SSL | `DB_SSL_CA` no `.env` quando o provedor oferecer | 1 (opcional) |
 
 ## Senhas durante a transição
@@ -60,10 +64,7 @@ Enquanto o sistema .NET estiver no ar, `LEGACY_CLEAR_PLAINTEXT=false`:
 - No login, a senha em texto é conferida, o hash é gravado em `SENHA_HASH` e a coluna `SENHA` é **mantida** para o legado continuar autenticando.
 - Ao trocar ou redefinir a senha no sistema novo, as duas colunas são atualizadas.
 
-**Na virada definitiva:**
-1. Coloque `LEGACY_CLEAR_PLAINTEXT=true` no `.env`.
-2. Renomeie `migrations/900_remover_senha_texto.sql.pending` para `.sql` e rode `php bin/migrate.php`.
-3. Usuários que nunca entraram no sistema novo ficam sem senha e usam "Esqueci minha senha".
+**Na virada definitiva:** siga [VIRADA.md](VIRADA.md). O `bin/virada.php` gera o hash de quem nunca entrou no sistema novo (ninguém precisa redefinir a senha), apaga as senhas em texto (900/901) e cifra as credenciais dos gateways.
 
 ## Checklist antes de cada publicação
 

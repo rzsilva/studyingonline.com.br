@@ -1,3 +1,6 @@
 
 # Mídias enviadas pelos usuários
 /data/
+
+# Credenciais de FTP do deploy (usar deploy/.env.example como modelo)
+deploy/.env

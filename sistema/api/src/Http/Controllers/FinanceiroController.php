@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Support\Segredo;
 use App\Domain\Auth\AuthUser;
 use App\Domain\Financeiro\CobrancaService;
 use App\Domain\Financeiro\Resources;
@@ -21,6 +22,7 @@ final class FinanceiroController
         private readonly CobrancaService $cobranca,
         private readonly Connection $db,
         private readonly Audit $audit,
+        private readonly Segredo $segredo,
     ) {
     }
 
@@ -132,7 +134,7 @@ final class FinanceiroController
             throw ApiException::validation(['token' => 'Informe a credencial do provedor.']);
         }
         $n = $this->db->run('UPDATE CONTA_BANCARIA SET GATEWAY_TOKEN_PROD = ? WHERE ID = ? AND INSTITUICAO_ID = ?',
-            [$token, (int) $args['id'], $u->instituicaoId])->rowCount();
+            [$this->segredo->paraGravar($token), (int) $args['id'], $u->instituicaoId])->rowCount();
         if ($n === 0 && !$this->db->run('SELECT 1 FROM CONTA_BANCARIA WHERE ID = ? AND INSTITUICAO_ID = ?', [(int) $args['id'], $u->instituicaoId])->fetchColumn()) {
             throw ApiException::notFound();
         }

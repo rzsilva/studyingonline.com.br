@@ -18,6 +18,7 @@ import { InscricaoPublicaPage } from './pages/secretaria/InscricaoPublicaPage';
 import { InscricoesPage, ProfessoresPage, UsuariosPage } from './pages/secretaria/SecretariaPages';
 import { MinhaMatriculaPage } from './pages/secretaria/MinhaMatriculaPage';
 import { ContasBancariasPage, ContasFixasPage, ContasPagarPage, ContasReceberPage, RelatorioFinanceiroPage } from './pages/financeiro/FinanceiroPages';
+import { CobrancasPage, ExtratoBoletosPage, InstituicaoPage } from './pages/adaline/AdalinePages';
 import { FullPageSpinner } from './components/ui';
 import { NAVIGATION, type NavItem } from './lib/navigation';
 import { Perfil } from './lib/types';
@@ -74,6 +75,9 @@ const ROTAS: Record<string, ReactElement> = {
   '/financeiro/contas-fixas': <Only perfis={ADMIN}><ContasFixasPage /></Only>,
   '/contas-bancarias': <Only perfis={ADMIN}><ContasBancariasPage /></Only>,
   '/relatorios/financeiro': <Only perfis={ADMIN}><RelatorioFinanceiroPage /></Only>,
+  '/instituicao': <Only perfis={ADMIN}><InstituicaoPage /></Only>,
+  '/cobrancas': <Only perfis={ADMIN}><CobrancasPage /></Only>,
+  '/cobrancas/extrato': <Only perfis={ADMIN}><ExtratoBoletosPage /></Only>,
 };
 
 const rotasMenu = (items: NavItem[]): string[] =>

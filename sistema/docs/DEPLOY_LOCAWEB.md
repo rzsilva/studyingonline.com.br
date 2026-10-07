@@ -91,6 +91,16 @@ ROTINAS_TOKEN=...              # php -r "echo bin2hex(random_bytes(24));"
 
 **Antes de ligar:** teste cada provedor com credenciais de sandbox ou homologação. A integração foi validada apenas contra o simulador (`api/tests/mock/gateways.php`).
 
+## 4c. Cobrança Adaline e cifragem (Fase 6)
+
+```ini
+ADALINE_OPERADORES=email1@adaline.com.br,email2@adaline.com.br   # usuários MASTER que operam o Painel Adaline
+ADALINE_BOLETOCLOUD_CONTA_TOKEN=...   # conta BoletoCloud da Adaline (token NOVO)
+ADALINE_TARIFA_BOLETO=2.50            # tarifa repassada por boleto emitido pelas escolas
+SECRETS_KEY=...                       # php -r "echo bin2hex(random_bytes(32));"  (guarde cópia fora do servidor)
+SECRETS_ENCRYPT=false                 # true só na virada (docs/VIRADA.md)
+```
+
 ## 5. Conferir
 
 - `https://SEU_DOMINIO/api/health` deve responder `{"data":{"status":"ok"}}`.

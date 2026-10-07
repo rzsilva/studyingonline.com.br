@@ -56,7 +56,7 @@ final class AdalineController
         foreach (self::CAMPOS_ESCOLA as $k => [$col]) {
             $out[$k] = $i[$col] ?? null;
         }
-        $out += ['url' => $i['URL'], 'plano' => $i['PLANO'], 'alunosQtdMax' => $i['ALUNOS_QTD_MAX'], 'vencimento' => $i['DATA_VENCIMENTO'],
+        $out += ['url' => $i['URL'], 'plano' => $i['PLANO'] !== null ? (int) $i['PLANO'] : null, 'alunosQtdMax' => $i['ALUNOS_QTD_MAX'] !== null ? (int) $i['ALUNOS_QTD_MAX'] : null, 'vencimento' => $i['DATA_VENCIMENTO'],
             'cobrarBoletos' => (bool) $i['COBRAR_BOLETOS'], 'ativo' => (bool) $i['ATIVO'], 'operadorAdaline' => $this->adaline->ehOperador($u)];
         return Json::ok($response, $out);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Financeiro;
 
+use App\Support\Segredo;
 use App\Domain\Adaline\AdalineService;
 use App\Domain\Auth\AuthUser;
 use App\Integrations\Pagamento\BoletoCloudGateway;
@@ -48,6 +49,7 @@ final class CobrancaService
         PagSeguroGateway $pagSeguro,
         private readonly MercadoPagoGateway $mercadoPago,
         private readonly AdalineService $adaline,
+        private readonly Segredo $segredo,
     ) {
         foreach ([$boletoCloud, $vindi, $pagSeguro, $mercadoPago] as $g) {
             $this->gateways[$g->nome()] = $g;
@@ -506,7 +508,7 @@ final class CobrancaService
               WHERE INSTITUICAO_ID = ? AND AUTORIZAR = 1 AND GATEWAY_TOKEN_PROD IS NOT NULL AND GATEWAY_TOKEN_PROD <> '' ORDER BY ID",
             [$instituicaoId]
         )->fetchAll() as $c) {
-            $out[$c['BANCO']] ??= new ContaGateway((int) $c['ID'], $c['BANCO'], $c['GATEWAY_TOKEN_PROD'], $c['INSTRUCOES'], $c['PAGSEGURO_EMAIL']);
+            $out[$c['BANCO']] ??= new ContaGateway((int) $c['ID'], $c['BANCO'], (string) $this->segredo->abrir($c['GATEWAY_TOKEN_PROD']), $c['INSTRUCOES'], $c['PAGSEGURO_EMAIL']);
         }
         return $out;
     }

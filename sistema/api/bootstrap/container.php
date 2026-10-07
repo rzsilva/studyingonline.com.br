@@ -10,6 +10,8 @@ use App\Domain\Auth\TokenService;
 use App\Domain\Instituicao\InstituicaoResolver;
 use App\Domain\Secretaria\InscricaoService;
 use App\Domain\Financeiro\CobrancaService;
+use App\Domain\Adaline\AdalineService;
+use App\Support\Segredo;
 use App\Integrations\Pagamento\BoletoCloudGateway;
 use App\Integrations\Pagamento\HttpCliente;
 use App\Integrations\Pagamento\MercadoPagoGateway;
@@ -90,6 +92,13 @@ return [
         $c->get('settings')['pagamentos']['mercadopago_api'], $c->get('settings')['pagamentos']['api_publica'] . '/webhooks/mercadopago'),
     CobrancaService::class => autowire()
         ->constructorParameter('webhookSecret', static fn (C $c) => $c->get('settings')['auth']['jwt_secret']),
+
+    AdalineService::class => autowire()
+        ->constructorParameter('operadores', static fn (C $c) => array_values($c->get('settings')['adaline']['operadores']))
+        ->constructorParameter('contaToken', static fn (C $c) => $c->get('settings')['adaline']['conta_token'])
+        ->constructorParameter('tarifaBoleto', static fn (C $c) => $c->get('settings')['adaline']['tarifa_boleto']),
+
+    Segredo::class => static fn (C $c) => new Segredo($c->get('settings')['segredos']['chave'], $c->get('settings')['segredos']['cifrar']),
 
     RotinasController::class => autowire()->constructorParameter('token', static fn (C $c) => $c->get('settings')['rotinas_token']),
 

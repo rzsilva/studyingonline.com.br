@@ -10,7 +10,7 @@ Legenda: ✅ concluído · 🔜 próximo · ⏳ pendente
 | 3 | Avisos (com imagem e feed na home), Fórum, Chat, anotações de vídeo, Painel presencial, extrato financeiro do aluno | ✅ |
 | 4 | Secretaria: inscrição pública, análise de inscrições, documentos, usuários com convite de acesso, professores, minha matrícula, rematrícula, rotina de inatividade | ✅ |
 | 5 | Financeiro: contas a receber/pagar/fixas, contas de recebimento, cobrança e 2ª via (BoletoCloud, Vindi, PagSeguro, MercadoPago), baixa automática, webhook MercadoPago, mensalidades em lote, relatório e planilha, rotina diária | ✅ (validar gateways reais com sandbox) |
-| 6 | 🔜 Site público da instituição, relatórios, cobrança Adaline, virada definitiva e desligamento do legado | ⏳ |
+| 6 | Dados da instituição, cobrança Adaline às escolas (faturas, boleto, extrato de tarifas, baixa), cifragem de credenciais, **virada preparada** ([VIRADA.md](VIRADA.md)) | ✅ (virada: data a definir) |
 
 ## Fase 2: o que foi entregue
 
@@ -75,6 +75,20 @@ Migration `004_financeiro.sql`: tabela `PAGAMENTO_EVENTO` (idempotência e audit
 **Gateways validados só contra o simulador** (`api/tests/mock/gateways.php`), que imita os proxies da Adaline e a API do MercadoPago com os contratos do legado. Antes de ligar em produção, valide com credenciais de sandbox/homologação de cada provedor.
 
 **Fora do escopo (decisão):** boleto bancário direto com remessa/retorno CNAB (Boleto.Net) não é usado. As telas "Arquivos Remessa/Retorno" saíram do menu.
+
+## Fase 6: o que foi entregue
+
+| Tela | Rota | API |
+|---|---|---|
+| Dados da instituição (cadastro, cor, logo; contrato só leitura) | `/instituicao` | `GET/PUT /instituicao` |
+| Faturas da Adaline (escola) | `/cobrancas` | `GET /adaline/faturas` |
+| Painel Adaline (operador): instituições, contrato, nova fatura com sugestão, emitir boleto, cancelar, atualizar pagamentos | `/cobrancas` | `/adaline/instituicoes[/{id}][/sugestao]`, `POST /adaline/faturas`, `POST /adaline/faturas/{id}/boleto|cancelar`, `POST /adaline/sincronizar` |
+| Extrato de tarifas de boleto | `/cobrancas/extrato` | `GET /adaline/extrato` |
+| Script da virada | — | `php bin/virada.php [--executar]` |
+
+Regras: o total da fatura é a soma de plano, excedente e tarifas de boleto ainda não cobradas. Cada boleto emitido pela escola no BoletoCloud gera uma tarifa (`ADALINE_TARIFA_BOLETO`) quando `COBRAR_BOLETOS=1`. Cancelar a fatura devolve as tarifas para a próxima. Quando a fatura é paga, o contrato (`INSTITUICAO.DATA_VENCIMENTO`) ganha mais um mês. A baixa também acontece na rotina diária.
+
+**Ainda pendente (menor):** perfis de questionário por tipo de curso na inscrição pública (EAD/Kids/Teen) e colunas extras na planilha de contas a receber.
 
 ## Mudanças de comportamento intencionais
 
