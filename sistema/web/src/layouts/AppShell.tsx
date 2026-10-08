@@ -100,7 +100,9 @@ export function AppShell() {
           ))}
         </ul>
       </nav>
-      <div className="border-t border-white/10 p-4 text-[11px] text-slate-500">Studying Online 2.0 · Adaline</div>
+      <div className="border-t border-white/10 p-4 text-[11px] text-slate-500">
+        Studying Online 2.0 · <a href="https://adaline.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-slate-300 hover:underline">Adaline</a>
+      </div>
     </div>
   );
 
@@ -137,7 +139,6 @@ export function AppShell() {
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
         <Outlet />
-      </main>
-    </div>
+      </main>    </div>
   );
 }

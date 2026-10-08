@@ -16,7 +16,9 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
           <p className="text-3xl font-semibold leading-tight">Seu curso, onde você estiver.</p>
           <p className="mt-3 max-w-md text-white/80">Aulas, provas, notas e financeiro em um só lugar.</p>
         </div>
-        <p className="relative text-xs text-white/60">Studying Online · Adaline Sistemas</p>
+        <p className="relative text-xs text-white/60">
+          Studying Online 2.0 · Desenvolvido por <a href="https://adaline.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white hover:underline">Adaline</a>
+        </p>
       </aside>
 
       <main className="flex flex-1 items-center justify-center px-4 py-10 sm:px-8">
@@ -31,8 +33,7 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
           )}
           <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
-          <div className="mt-8">{children}</div>
-        </div>
+          <div className="mt-8">{children}</div>        </div>
       </main>
     </div>
   );

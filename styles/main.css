@@ -186,6 +186,7 @@ a:hover { color: var(--primary-hover); }
 .site-footer { border-top: 1px solid var(--border); padding: 28px 0; color: var(--muted); font-size: .95rem; }
 .footer-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
 .footer-row p { margin: 0; }
+.footer-credit a { color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
