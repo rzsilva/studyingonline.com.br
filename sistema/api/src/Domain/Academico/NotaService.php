@@ -22,7 +22,7 @@ final class NotaService
     {
         $mod = $this->modulo($user, $moduloId);
         $rows = $this->db->run(
-            'SELECT u.ID AS USUARIO_ID, u.NOME, u.MATRICULA, n.ID AS NOTA_ID, n.NOTA1, n.NOTA_RECUPERACAO, n.FALTAS,
+            'SELECT u.ID AS USUARIO_ID, u.NOME, u.MATRICULA, n.ID AS NOTA_ID, n.NOTA AS NOTA1, n.NOTA_RECUPERACAO, n.FALTAS,
                     COALESCE(n.LISTA_STATUS_NOTA_ID, 1) AS STATUS_ID
                FROM USUARIO_CURSO uc
                JOIN USUARIO u ON u.ID = uc.USUARIO_ID
@@ -93,11 +93,11 @@ final class NotaService
                 $id = $this->db->run('SELECT ID FROM NOTA WHERE USUARIO_ID = ? AND DISCIPLINA_ID = ? AND INSTITUICAO_ID = ?',
                     [$uid, $moduloId, $user->instituicaoId])->fetchColumn();
                 if ($id) {
-                    $this->db->run('UPDATE NOTA SET NOTA1 = ?, NOTA_RECUPERACAO = ?, FALTAS = ?, LISTA_STATUS_NOTA_ID = ? WHERE ID = ?',
+                    $this->db->run('UPDATE NOTA SET NOTA = ?, NOTA_RECUPERACAO = ?, FALTAS = ?, LISTA_STATUS_NOTA_ID = ? WHERE ID = ?',
                         [$n1, $nr, $faltas, $status, (int) $id]);
                 } else {
                     $this->db->run(
-                        'INSERT INTO NOTA (INSTITUICAO_ID, DISCIPLINA_ID, USUARIO_ID, NOTA1, NOTA_RECUPERACAO, FALTAS, LISTA_STATUS_NOTA_ID, DATA_CADASTRO)
+                        'INSERT INTO NOTA (INSTITUICAO_ID, DISCIPLINA_ID, USUARIO_ID, NOTA, NOTA_RECUPERACAO, FALTAS, LISTA_STATUS_NOTA_ID, DATA_CADASTRO)
                          VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
                         [$user->instituicaoId, $moduloId, $uid, $n1, $nr, $faltas, $status]
                     );
@@ -126,7 +126,7 @@ final class NotaService
             throw ApiException::notFound();
         }
         $rows = $this->db->run(
-            'SELECT d.ID, d.PERIODO, ld.VALOR AS DISCIPLINA, n.NOTA1, n.NOTA_RECUPERACAO, n.FALTAS, n.LISTA_STATUS_NOTA_ID
+            'SELECT d.ID, d.PERIODO, ld.VALOR AS DISCIPLINA, n.NOTA AS NOTA1, n.NOTA_RECUPERACAO, n.FALTAS, n.LISTA_STATUS_NOTA_ID
                FROM DISCIPLINA d
                LEFT JOIN LISTA_DISCIPLINA ld ON ld.ID = d.LISTA_DISCIPLINA_ID
                LEFT JOIN NOTA n ON n.DISCIPLINA_ID = d.ID AND n.USUARIO_ID = ?

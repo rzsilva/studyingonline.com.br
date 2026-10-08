@@ -4,3 +4,4 @@
 
 # Credenciais de FTP do deploy (usar deploy/.env.example como modelo)
 deploy/.env
+sistema/api/.env.local

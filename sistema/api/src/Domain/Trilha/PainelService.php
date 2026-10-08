@@ -237,7 +237,7 @@ final class PainelService
                 'SELECT ID FROM NOTA WHERE USUARIO_ID = ? AND DISCIPLINA_ID = ? AND INSTITUICAO_ID = ?',
                 [$user->id, $moduloId, $user->instituicaoId]
             )->fetchColumn();
-            $coluna = $recuperacao ? 'NOTA_RECUPERACAO' : 'NOTA1';
+            $coluna = $recuperacao ? 'NOTA_RECUPERACAO' : 'NOTA';
             if ($notaId) {
                 $this->db->run(
                     "UPDATE NOTA SET {$coluna} = ?, LISTA_STATUS_NOTA_ID = ? WHERE ID = ?",
@@ -347,7 +347,7 @@ final class PainelService
                 }
             }
             foreach ($this->db->run(
-                "SELECT DISCIPLINA_ID, LISTA_STATUS_NOTA_ID, NOTA1, NOTA_RECUPERACAO, FALTAS FROM NOTA
+                "SELECT DISCIPLINA_ID, LISTA_STATUS_NOTA_ID, NOTA AS NOTA1, NOTA_RECUPERACAO, FALTAS FROM NOTA
                   WHERE USUARIO_ID = ? AND DISCIPLINA_ID IN ({$in})",
                 [$user->id, ...$ids]
             )->fetchAll() as $n) {

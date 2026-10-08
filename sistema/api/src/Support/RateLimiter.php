@@ -20,7 +20,7 @@ final class RateLimiter
     public function hit(string $key, int $max, int $windowSeconds): void
     {
         $file = $this->dir . '/' . hash('sha256', $key) . '.json';
-        $fp = fopen($file, 'c+');
+        $fp = @fopen($file, 'c+');
         if ($fp === false) {
             return; // falha de disco não deve derrubar o login
         }
