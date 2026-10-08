@@ -17,7 +17,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Rotinas diárias para o agendador de tarefas da Locaweb (que só chama URLs):
  *   POST /rotinas/diaria   com o header  X-Rotinas-Token: <ROTINAS_TOKEN do .env>
- * Sincroniza baixas de pagamento e aplica a inatividade em TODAS as instituições ativas.
+ * Gera as mensalidades do mês, sincroniza baixas de pagamento e aplica a inatividade em TODAS as instituições ativas.
  * Também pode ser chamada pela linha de comando: php bin/rotinas.php
  */
 final class RotinasController
@@ -42,9 +42,21 @@ final class RotinasController
 
     public function executar(): array
     {
-        $res = ['instituicoes' => 0, 'pagos' => 0, 'erros' => 0, 'inativados' => 0];
+        // no legado a requisição era cortada em ~90s e as últimas instituições ficavam sem mensalidade
+        @set_time_limit(0);
+        ignore_user_abort(true);
+        $res = ['instituicoes' => 0, 'mensalidades' => 0, 'pagos' => 0, 'erros' => 0, 'inativados' => 0];
         foreach ($this->db->run('SELECT ID FROM INSTITUICAO WHERE ATIVO = 1')->fetchAll(\PDO::FETCH_COLUMN) as $id) {
             $res['instituicoes']++;
+            // mensalidades primeiro e isoladas: falha de gateway na sincronização não impede a geração
+            try {
+                $m = $this->cobranca->gerarMensalidadesDoMes((int) $id);
+                $res['mensalidades'] += count($m['gerados']);
+                $res['erros'] += count($m['erros']);
+            } catch (\Throwable $e) {
+                $res['erros']++;
+                $this->logger->error("Rotina diária: mensalidades falharam na instituição {$id}: " . $e->getMessage());
+            }
             try {
                 $s = $this->cobranca->sincronizar((int) $id);
                 $res['pagos'] += $s['pagos'];

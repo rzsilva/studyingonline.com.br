@@ -96,6 +96,19 @@ ok "simulação não grava" "$(req $A POST /financeiro/mensalidades "{\"competen
 ok "gera as mensalidades" "$(req $A POST /financeiro/mensalidades "{\"competencia\":\"$COMP\"}" | $P -r 'echo count(json_decode(stream_get_contents(STDIN),true)["data"]["gerados"]);')" "$QTD"
 ok "não duplica na mesma competência" "$(req $A POST /financeiro/mensalidades "{\"competencia\":\"$COMP\"}" | $P -r 'echo count(json_decode(stream_get_contents(STDIN),true)["data"]["gerados"]);')" 0
 ok "competência inválida" "$(code $A POST /financeiro/mensalidades '{"competencia":"2026-13"}')" 422
+if [ -n "$MYSQL" ]; then
+  # recuperação de mês que ficou sem gerar (legado: IEBIR ago/set 2026), mesmo com meses posteriores já lançados
+  PASS=$(date -d '-1 month' +%Y-%m)
+  sql "update USUARIO_CURSO set DATA_CADASTRO='2020-01-01' where INSTITUICAO_ID=1"
+  RETRO=$(req $A POST /financeiro/mensalidades "{\"competencia\":\"$PASS\"}" | $P -r 'echo count(json_decode(stream_get_contents(STDIN),true)["data"]["gerados"]);')
+  ok "retroativo preenche o mês que faltou" "$([ "$RETRO" -gt 0 ] && echo y)" y
+  ok "retroativo não duplica" "$(req $A POST /financeiro/mensalidades "{\"competencia\":\"$PASS\"}" | $P -r 'echo count(json_decode(stream_get_contents(STDIN),true)["data"]["gerados"]);')" 0
+  sql "update USUARIO_CURSO set DATA_CADASTRO=NOW() where INSTITUICAO_ID=1"
+  ok "retroativo não cobra antes da inscrição" "$(req $A POST /financeiro/mensalidades "{\"competencia\":\"$(date -d '-3 months' +%Y-%m)\"}" | $P -r 'echo count(json_decode(stream_get_contents(STDIN),true)["data"]["gerados"]);')" 0
+fi
+ROT=$(curl -s -X POST $U/rotinas/diaria -H 'X-Rotinas-Token: rotina-token-de-teste-123')
+ok "rotina diária gera as mensalidades do mês" "$(echo "$ROT" | grep -c '"mensalidades"')" 1
+ok "rotina diária é idempotente" "$(curl -s -X POST $U/rotinas/diaria -H 'X-Rotinas-Token: rotina-token-de-teste-123' | jget data.mensalidades)" 0
 ok "contas fixas viram contas a pagar" "$(req $A POST /financeiro/contas-fixas/gerar '{"competencia":"2026-02"}' | jget data.geradas)" 2
 [ -n "$MYSQL" ] && ok "dia 31 em fevereiro vira o último dia" "$(sql "select substr(DATA_VENCIMENTO,1,10) from CONTAS_PAGAR where DESCRICAO='Folha de pagamento'")" "2026-02-28"
 ok "contas fixas não duplicam" "$(req $A POST /financeiro/contas-fixas/gerar '{"competencia":"2026-02"}' | jget data.geradas)" 0

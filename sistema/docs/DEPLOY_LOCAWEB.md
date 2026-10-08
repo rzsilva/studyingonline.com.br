@@ -88,8 +88,9 @@ ROTINAS_TOKEN=...              # php -r "echo bin2hex(random_bytes(24));"
 
 **MercadoPago:** na mesma tela, a URL de notificação aparece ao abrir a credencial. Cadastre essa URL no painel do MercadoPago (Webhooks → evento *Pagamentos*).
 
-**Agendador de tarefas da Locaweb:** crie uma tarefa diária, de madrugada, que chame `POST https://SEU_DOMINIO/api/rotinas/diaria` com o header `X-Rotinas-Token: <ROTINAS_TOKEN>`. Se o agendador não permitir header, rode `php bin/rotinas.php` da sua máquina apontando para o banco de produção. A rotina faz duas coisas:
+**Agendador de tarefas da Locaweb:** crie uma tarefa diária, de madrugada, que chame `POST https://SEU_DOMINIO/api/rotinas/diaria` com o header `X-Rotinas-Token: <ROTINAS_TOKEN>`. Se o agendador não permitir header, rode `php bin/rotinas.php` da sua máquina apontando para o banco de produção. A rotina faz três coisas:
 
+- gera as mensalidades do mês corrente de todas as instituições (idempotente: rodar todo dia não duplica; quem ficou sem mensalidade num dia é pego no seguinte);
 - dá baixa nos pagamentos de boleto e cartão de todas as instituições;
 - inativa os alunos cujo curso terminou.
 

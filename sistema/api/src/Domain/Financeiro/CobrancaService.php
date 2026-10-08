@@ -273,6 +273,7 @@ final class CobrancaService
      * Mensalidades do mês (antes GerarCobrancaAlunos, que rodava para TODAS as instituições sem login).
      * Para cada aluno ativo e curso ativo com valor: valor do curso − desconto do aluno, vencimento no
      * dia de vencimento do aluno; respeita PERIODICIDADE_COBRANCA e não duplica.
+     * Competência passada = recuperação de mês que ficou sem gerar (ex.: IEBIR ago/set 2026 no legado).
      */
     public function gerarMensalidades(AuthUser $admin, string $competencia, bool $simular = false): array
     {
@@ -280,60 +281,98 @@ final class CobrancaService
         if (!$mes) {
             throw ApiException::validation(['competencia' => 'Use AAAA-MM.']);
         }
+        $res = $this->gerarMensalidadesInstituicao($admin->instituicaoId, $mes, $simular);
+        if (!$simular) {
+            $this->audit->log($admin, 'gerar_mensalidades', 'CONTAS_RECEBER', null, null,
+                ['competencia' => $competencia, 'qtd' => count($res['gerados']), 'erros' => count($res['erros'])]);
+        }
+        return $res;
+    }
+
+    /** Mensalidades do mês corrente de uma instituição (rotina diária; idempotente). */
+    public function gerarMensalidadesDoMes(int $instituicaoId): array
+    {
+        return $this->gerarMensalidadesInstituicao($instituicaoId, new \DateTimeImmutable('first day of this month midnight'), false);
+    }
+
+    private function gerarMensalidadesInstituicao(int $instituicaoId, \DateTimeImmutable $mes, bool $simular): array
+    {
+        // mês já passado: só preenche o buraco — ignora a regra "já há mensalidade mais à frente",
+        // mas não cobra quem se inscreveu no curso depois do vencimento
+        $retroativo = $mes < new \DateTimeImmutable('first day of this month midnight');
         $alunos = $this->db->run(
             'SELECT u.ID AS USUARIO_ID, u.NOME, u.DESCONTO, u.DIA_VENCIMENTO, c.ID AS CURSO_ID, c.NOME AS CURSO, c.VALOR,
-                    COALESCE(NULLIF(c.PERIODICIDADE_COBRANCA, 0), 1) AS PERIODICIDADE
+                    COALESCE(NULLIF(c.PERIODICIDADE_COBRANCA, 0), 1) AS PERIODICIDADE,
+                    COALESCE(uc.DATA_CADASTRO, u.DATA_CADASTRO) AS INSCRITO_EM
                FROM USUARIO u JOIN USUARIO_CURSO uc ON uc.USUARIO_ID = u.ID JOIN CURSO c ON c.ID = uc.CURSO_ID
               WHERE u.INSTITUICAO_ID = ? AND u.LISTA_PERFIL_ID = 3 AND u.INATIVO = 0 AND c.ATIVO = 1 AND c.VALOR > 0
               ORDER BY u.NOME',
-            [$admin->instituicaoId]
+            [$instituicaoId]
         )->fetchAll();
 
         $gerados = [];
+        $erros = [];
         $ignorados = 0;
         $jaGerado = []; // como no legado: no máximo UMA mensalidade por aluno por competência
         $this->db->beginTransaction();
         try {
             foreach ($alunos as $a) {
-                $valor = round((float) $a['VALOR'] - (float) $a['DESCONTO'], 2);
-                if ($valor <= 0 || isset($jaGerado[$a['USUARIO_ID']])) {
-                    $ignorados++;
-                    continue;
-                }
-                $dia = min(max((int) $a['DIA_VENCIMENTO'] ?: 15, 1), (int) $mes->format('t'));
-                $venc = $mes->setDate((int) $mes->format('Y'), (int) $mes->format('m'), $dia)->format('Y-m-d');
-                // já existe mensalidade (não cancelada) deste aluno nesta competência, ou dentro da periodicidade?
-                $ultima = $this->db->run(
-                    'SELECT MAX(DATA_VENCIMENTO) FROM CONTAS_RECEBER
-                      WHERE USUARIO_ID = ? AND INSTITUICAO_ID = ? AND LISTA_CATEGORIA_CR_ID = 1 AND LISTA_SITUACAO_CR_ID <> 4',
-                    [$a['USUARIO_ID'], $admin->instituicaoId]
-                )->fetchColumn();
-                if ($ultima) {
-                    $proxima = (new \DateTimeImmutable(substr($ultima, 0, 7) . '-01'))->modify('+' . (int) $a['PERIODICIDADE'] . ' months');
-                    if ($proxima > $mes) {
+                // um aluno com problema não interrompe os demais
+                try {
+                    $valor = round((float) $a['VALOR'] - (float) $a['DESCONTO'], 2);
+                    if ($valor <= 0 || isset($jaGerado[$a['USUARIO_ID']])) {
                         $ignorados++;
                         continue;
                     }
+                    $dia = min(max((int) $a['DIA_VENCIMENTO'] ?: 15, 1), (int) $mes->format('t'));
+                    $venc = $mes->setDate((int) $mes->format('Y'), (int) $mes->format('m'), $dia)->format('Y-m-d');
+                    if ($retroativo) {
+                        $existe = $this->db->run(
+                            "SELECT 1 FROM CONTAS_RECEBER WHERE USUARIO_ID = ? AND INSTITUICAO_ID = ? AND LISTA_CATEGORIA_CR_ID = 1
+                                AND LISTA_SITUACAO_CR_ID <> 4 AND DATE_FORMAT(DATA_VENCIMENTO, '%Y-%m') = ? LIMIT 1",
+                            [$a['USUARIO_ID'], $instituicaoId, $mes->format('Y-m')]
+                        )->fetchColumn();
+                        if ($existe || ($a['INSCRITO_EM'] && substr((string) $a['INSCRITO_EM'], 0, 10) > $venc)) {
+                            $ignorados++;
+                            continue;
+                        }
+                    } else {
+                        // já existe mensalidade (não cancelada) deste aluno nesta competência, ou dentro da periodicidade?
+                        $ultima = $this->db->run(
+                            'SELECT MAX(DATA_VENCIMENTO) FROM CONTAS_RECEBER
+                              WHERE USUARIO_ID = ? AND INSTITUICAO_ID = ? AND LISTA_CATEGORIA_CR_ID = 1 AND LISTA_SITUACAO_CR_ID <> 4',
+                            [$a['USUARIO_ID'], $instituicaoId]
+                        )->fetchColumn();
+                        if ($ultima) {
+                            $proxima = (new \DateTimeImmutable(substr($ultima, 0, 7) . '-01'))->modify('+' . (int) $a['PERIODICIDADE'] . ' months');
+                            if ($proxima > $mes) {
+                                $ignorados++;
+                                continue;
+                            }
+                        }
+                    }
+                    if (!$simular) {
+                        $this->db->run(
+                            'INSERT INTO CONTAS_RECEBER (INSTITUICAO_ID, USUARIO_ID, DATA_VENCIMENTO, LISTA_SITUACAO_CR_ID, LISTA_CATEGORIA_CR_ID,
+                                VALOR, OBSERVACAO, DATA_CADASTRO) VALUES (?, ?, ?, 1, 1, ?, ?, NOW())',
+                            [$instituicaoId, $a['USUARIO_ID'], $venc, $valor, "Mensalidade {$mes->format('m/Y')} - {$a['CURSO']}"]
+                        );
+                    }
+                    $jaGerado[$a['USUARIO_ID']] = true;
+                    $gerados[] = ['aluno' => $a['NOME'], 'curso' => $a['CURSO'], 'vencimento' => $venc, 'valor' => $valor];
+                } catch (\PDOException $e) {
+                    $this->logger->error('Falha ao gerar mensalidade', ['instituicao' => $instituicaoId, 'aluno' => $a['USUARIO_ID'],
+                        'competencia' => $mes->format('Y-m'), 'erro' => $e->getMessage()]);
+                    $erros[] = ['aluno' => $a['NOME'], 'erro' => 'Falha ao gravar a mensalidade.'];
                 }
-                if (!$simular) {
-                    $this->db->run(
-                        'INSERT INTO CONTAS_RECEBER (INSTITUICAO_ID, USUARIO_ID, DATA_VENCIMENTO, LISTA_SITUACAO_CR_ID, LISTA_CATEGORIA_CR_ID,
-                            VALOR, OBSERVACAO, DATA_CADASTRO) VALUES (?, ?, ?, 1, 1, ?, ?, NOW())',
-                        [$admin->instituicaoId, $a['USUARIO_ID'], $venc, $valor, "Mensalidade {$mes->format('m/Y')} - {$a['CURSO']}"]
-                    );
-                }
-                $jaGerado[$a['USUARIO_ID']] = true;
-                $gerados[] = ['aluno' => $a['NOME'], 'curso' => $a['CURSO'], 'vencimento' => $venc, 'valor' => $valor];
             }
             $simular ? $this->db->rollBack() : $this->db->commit();
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
-        if (!$simular) {
-            $this->audit->log($admin, 'gerar_mensalidades', 'CONTAS_RECEBER', null, null, ['competencia' => $competencia, 'qtd' => count($gerados)]);
-        }
-        return ['gerados' => $gerados, 'ignorados' => $ignorados, 'total' => round(array_sum(array_column($gerados, 'valor')), 2)];
+        return ['gerados' => $gerados, 'ignorados' => $ignorados, 'erros' => $erros,
+            'total' => round(array_sum(array_column($gerados, 'valor')), 2)];
     }
 
     /** Contas a pagar do mês a partir das contas fixas (sem duplicar). */

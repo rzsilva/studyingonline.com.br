@@ -147,19 +147,24 @@ function CancelarModal({ titulo, onClose }: { titulo: Row; onClose: () => void }
 }
 
 interface Gerado { aluno: string; curso: string; vencimento: string; valor: number }
+interface ResultadoMensalidades { gerados: Gerado[]; ignorados: number; erros: { aluno: string; erro: string }[]; total: number }
 
 function MensalidadesModal({ onClose }: { onClose: () => void }) {
   const { toast } = useFeedback();
   const [comp, setComp] = useState(competenciaAtual());
-  const [previa, setPrevia] = useState<{ gerados: Gerado[]; ignorados: number; total: number } | null>(null);
+  const [previa, setPrevia] = useState<ResultadoMensalidades | null>(null);
   const simular = useMutation({
-    mutationFn: () => http.post<{ gerados: Gerado[]; ignorados: number; total: number }>('/financeiro/mensalidades', { competencia: comp, simular: true }),
+    mutationFn: () => http.post<ResultadoMensalidades>('/financeiro/mensalidades', { competencia: comp, simular: true }),
     onSuccess: setPrevia,
     onError: (e) => toast(erroMsg(e), 'error'),
   });
   const gerar = useMutation({
-    mutationFn: () => http.post<{ gerados: Gerado[] }>('/financeiro/mensalidades', { competencia: comp }),
-    onSuccess: (r) => { toast(`${r.gerados.length} mensalidade(s) gerada(s).`); onClose(); },
+    mutationFn: () => http.post<ResultadoMensalidades>('/financeiro/mensalidades', { competencia: comp }),
+    onSuccess: (r) => {
+      if (r.erros.length) toast(`${r.gerados.length} gerada(s); ${r.erros.length} aluno(s) com erro: ${r.erros.map((e) => e.aluno).join(', ')}.`, 'error');
+      else toast(`${r.gerados.length} mensalidade(s) gerada(s).`);
+      onClose();
+    },
     onError: (e) => toast(erroMsg(e), 'error'),
   });
   return (
@@ -171,7 +176,7 @@ function MensalidadesModal({ onClose }: { onClose: () => void }) {
       </>}>
       <div className="space-y-4">
         <Input label="Competência (mês)" type="month" value={comp} onChange={(e) => { setComp(e.target.value); setPrevia(null); }} />
-        <p className="text-xs text-slate-500">Uma mensalidade por aluno ativo (valor do curso − desconto), no dia de vencimento de cada aluno. Respeita a periodicidade do curso e não duplica.</p>
+        <p className="text-xs text-slate-500">Uma mensalidade por aluno ativo (valor do curso − desconto), no dia de vencimento de cada aluno. Respeita a periodicidade do curso e não duplica. Em um mês passado, gera só para quem ficou sem mensalidade naquele mês (e já estava inscrito).</p>
         {previa && (
           previa.gerados.length === 0 ? <Alert kind="success">Nada a gerar nesta competência ({previa.ignorados} aluno(s) já cobrados ou fora da periodicidade).</Alert> : (
             <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200">

@@ -125,7 +125,7 @@ Regras: o total da fatura é a soma de plano, excedente e tarifas de boleto aind
 | Baixa de pagamentos | Rotinas separadas por gateway, sem login, para todas as instituições | Uma rotina diária (token) + botão "Atualizar pagamentos"; cada baixa registrada uma única vez | Segurança / idempotência |
 | Emissão de cobrança | Podia gerar mais de um boleto para o mesmo título | Idempotente: o segundo clique devolve a 2ª via | Cobrança duplicada |
 | Exclusão de título | Possível | Títulos não se apagam: cancelam com motivo (fica o histórico) | Auditoria |
-| Mensalidades em lote | Rodava para todas as instituições, sem login | Por instituição, pelo administrador, com prévia | Segurança |
+| Mensalidades em lote | Rodava para todas as instituições, sem login; `Sleep(500)` por cobrança fazia a requisição estourar o tempo e as últimas instituições ficavam sem mensalidade (IEBIR, ago/set 2026); não recuperava meses perdidos | Mês corrente na rotina diária (token, sem limite de tempo, erro isolado por aluno e por instituição); admin gera qualquer competência com prévia — mês passado preenche só quem ficou sem e já estava inscrito | Segurança / mensalidades faltando |
 | Status da nota lançada pelo professor | Escolhido manualmente | Automático pela média (maior entre nota e recuperação), com opção de definir manualmente | Menos erro de lançamento |
 
 ### Mantidos do legado, a confirmar com a coordenação
